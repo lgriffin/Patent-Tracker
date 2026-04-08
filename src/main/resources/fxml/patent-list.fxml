@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.PatentListController" spacing="0">
+
+    <!-- Filter Panel -->
+    <HBox fx:id="filterPanel" styleClass="filter-panel" spacing="10" alignment="CENTER_LEFT">
+        <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
+
+        <TextField fx:id="searchField" promptText="Search patents by title..." styleClass="search-field"
+                   prefWidth="300" onKeyReleased="#handleSearch"/>
+
+        <ComboBox fx:id="statusFilter" promptText="Status" prefWidth="120" onAction="#handleFilterChange"/>
+        <ComboBox fx:id="inventorFilter" promptText="Inventor" prefWidth="180" onAction="#handleFilterChange"/>
+        <ComboBox fx:id="classificationFilter" promptText="Formal Classification" prefWidth="180" onAction="#handleFilterChange"/>
+        <ComboBox fx:id="tagFilter" promptText="Tag" prefWidth="140" onAction="#handleFilterChange"/>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <Button text="Clear Filters" onAction="#handleClearFilters" styleClass="secondary-button"/>
+        <Label fx:id="resultCountLabel" text="0 patents"/>
+    </HBox>
+
+    <!-- Active Filter Chips -->
+    <FlowPane fx:id="activeFiltersPane" hgap="5" vgap="5" managed="false" visible="false">
+        <padding><Insets top="4" right="10" bottom="4" left="10"/></padding>
+    </FlowPane>
+
+    <!-- Patent Table -->
+    <TableView fx:id="patentTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colTitle" text="Title" prefWidth="280"/>
+            <TableColumn fx:id="colFileNumber" text="File Number" prefWidth="130"/>
+            <TableColumn fx:id="colFilingDate" text="Filing Date" prefWidth="90"/>
+            <TableColumn fx:id="colAppNumber" text="Application #" prefWidth="100"/>
+            <TableColumn fx:id="colPatentNumber" text="Patent #" prefWidth="80"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="80"/>
+            <TableColumn fx:id="colPrimaryInventor" text="Primary Inventor" prefWidth="130"/>
+            <TableColumn fx:id="colSecondaryInventor" text="Secondary Inventor" prefWidth="130"/>
+            <TableColumn fx:id="colAdditionalInventors" text="Additional Inventors" prefWidth="130"/>
+            <TableColumn fx:id="colClassification" text="Formal Classification" prefWidth="130"/>
+            <TableColumn fx:id="colTags" text="Tags" prefWidth="180"/>
+        </columns>
+    </TableView>
+
+</VBox>

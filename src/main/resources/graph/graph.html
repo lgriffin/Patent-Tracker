@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: #1a1a2e; }
+        #graph { width: 100%; height: 100%; }
+
+        /* Legend overlay */
+        #legend {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(16, 16, 32, 0.88);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #ccc;
+            font-size: 11px;
+            max-width: 220px;
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+        #legend h4 {
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 3px 0;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .legend-star {
+            width: 10px;
+            height: 10px;
+            margin-right: 8px;
+            flex-shrink: 0;
+            color: #ffd700;
+            font-size: 14px;
+            line-height: 10px;
+        }
+
+        /* Stats overlay */
+        #stats {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(16, 16, 32, 0.88);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #aaa;
+            font-size: 11px;
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+        #stats span { color: #fff; font-weight: 600; }
+    </style>
+    <script src="vis-network.min.js"></script>
+</head>
+<body>
+    <div id="graph"></div>
+    <div id="legend"></div>
+    <div id="stats"></div>
+
+    <script>
+        var network = null;
+        var nodesDataset = null;
+        var edgesDataset = null;
+        var allNodeIds = [];
+        var neighborMap = {};
+
+        // Technology domain color palette
+        var TAG_COLORS = {
+            'Quantum Computing':    { bg: '#00d4ff', border: '#0099cc', glow: 'rgba(0,212,255,0.5)' },
+            'Containers':           { bg: '#0ea5e9', border: '#0369a1', glow: 'rgba(14,165,233,0.5)' },
+            'Security':             { bg: '#ef4444', border: '#b91c1c', glow: 'rgba(239,68,68,0.5)' },
+            'Machine Learning':     { bg: '#a855f7', border: '#7e22ce', glow: 'rgba(168,85,247,0.5)' },
+            'Edge Computing':       { bg: '#f97316', border: '#c2410c', glow: 'rgba(249,115,22,0.5)' },
+            'Mesh Networking':      { bg: '#14b8a6', border: '#0f766e', glow: 'rgba(20,184,166,0.5)' },
+            'DevOps & CI/CD':       { bg: '#3b82f6', border: '#1d4ed8', glow: 'rgba(59,130,246,0.5)' },
+            'Cloud & Migration':    { bg: '#6366f1', border: '#4338ca', glow: 'rgba(99,102,241,0.5)' },
+            'Virtualization':       { bg: '#8b5cf6', border: '#6d28d9', glow: 'rgba(139,92,246,0.5)' },
+            'Operating Systems':    { bg: '#64748b', border: '#475569', glow: 'rgba(100,116,139,0.5)' },
+            'Functional Safety':    { bg: '#f59e0b', border: '#d97706', glow: 'rgba(245,158,11,0.5)' },
+            'API & Services':       { bg: '#10b981', border: '#059669', glow: 'rgba(16,185,129,0.5)' },
+            'Data Management':      { bg: '#06b6d4', border: '#0891b2', glow: 'rgba(6,182,212,0.5)' },
+            'Automotive':           { bg: '#ec4899', border: '#be185d', glow: 'rgba(236,72,153,0.5)' },
+            'Energy & Power':       { bg: '#84cc16', border: '#65a30d', glow: 'rgba(132,204,22,0.5)' },
+            'Package Management':   { bg: '#f43f5e', border: '#be123c', glow: 'rgba(244,63,94,0.5)' },
+            'Distributed Computing':{ bg: '#22d3ee', border: '#0e7490', glow: 'rgba(34,211,238,0.5)' },
+            'Application Lifecycle':{ bg: '#fb923c', border: '#ea580c', glow: 'rgba(251,146,60,0.5)' },
+            'Networking':           { bg: '#2dd4bf', border: '#0d9488', glow: 'rgba(45,212,191,0.5)' }
+        };
+
+        var DEFAULT_COLOR = { bg: '#6b7280', border: '#4b5563', glow: 'rgba(107,114,128,0.4)' };
+        var OWNER_COLOR = { bg: '#ffd700', border: '#b8960f', glow: 'rgba(255,215,0,0.6)' };
+        var DIM_OPACITY = 0.12;
+
+        function getTagColor(tag) {
+            return TAG_COLORS[tag] || DEFAULT_COLOR;
+        }
+
+        function buildLegend(usedTags, ownerName) {
+            var html = '<h4>Inventor Network</h4>';
+            html += '<div class="legend-item"><span class="legend-star">\u2605</span> ' + ownerName + ' (Owner)</div>';
+
+            // Sort tags by name, show only used ones
+            var sorted = Object.keys(usedTags).sort();
+            for (var i = 0; i < sorted.length; i++) {
+                var tag = sorted[i];
+                var c = getTagColor(tag);
+                html += '<div class="legend-item"><span class="legend-dot" style="background:' + c.bg +
+                        '; box-shadow: 0 0 4px ' + c.glow + ';"></span> ' + tag + '</div>';
+            }
+            if (Object.keys(usedTags).length === 0) {
+                html += '<div class="legend-item" style="color:#666;">Run Auto-Tag to color by domain</div>';
+            }
+            document.getElementById('legend').innerHTML = html;
+        }
+
+        function receiveGraphData(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var ownerName = data.ownerName || '';
+            var usedTags = {};
+
+            neighborMap = {};
+            allNodeIds = [];
+
+            // Pre-compute neighbor map for hover highlighting
+            data.edges.forEach(function(e) {
+                if (!neighborMap[e.from]) neighborMap[e.from] = [];
+                if (!neighborMap[e.to]) neighborMap[e.to] = [];
+                neighborMap[e.from].push(e.to);
+                neighborMap[e.to].push(e.from);
+            });
+
+            nodesDataset = new vis.DataSet(data.nodes.map(function(n) {
+                allNodeIds.push(n.id);
+                var color;
+                var shape = 'dot';
+                var borderWidth = 2;
+                var shadow = true;
+                var fontColor = '#e0e0e0';
+
+                if (n.isOwner) {
+                    color = {
+                        background: OWNER_COLOR.bg,
+                        border: OWNER_COLOR.border,
+                        highlight: { background: '#ffe44d', border: OWNER_COLOR.border },
+                        hover: { background: '#ffe44d', border: OWNER_COLOR.border }
+                    };
+                    shape = 'star';
+                    borderWidth = 3;
+                    fontColor = '#ffd700';
+                } else {
+                    var tc = n.primaryTag ? getTagColor(n.primaryTag) : DEFAULT_COLOR;
+                    if (n.primaryTag) usedTags[n.primaryTag] = true;
+                    color = {
+                        background: tc.bg,
+                        border: tc.border,
+                        highlight: { background: lighten(tc.bg, 25), border: tc.border },
+                        hover: { background: lighten(tc.bg, 15), border: tc.border }
+                    };
+                }
+
+                var tooltip = n.label + '\nPatents: ' + n.value;
+                if (n.primaryTag) {
+                    tooltip += '\nDomain: ' + n.primaryTag;
+                }
+                if (n.isOwner) {
+                    tooltip += '\n\u2605 Portfolio Owner';
+                }
+
+                return {
+                    id: n.id,
+                    label: n.label,
+                    value: n.value,
+                    title: tooltip,
+                    shape: shape,
+                    size: n.size,
+                    borderWidth: borderWidth,
+                    color: color,
+                    shadow: {
+                        enabled: shadow,
+                        color: n.isOwner ? OWNER_COLOR.glow : (n.primaryTag ? getTagColor(n.primaryTag).glow : DEFAULT_COLOR.glow),
+                        size: n.isOwner ? 20 : 12,
+                        x: 0, y: 0
+                    },
+                    font: {
+                        size: Math.max(11, Math.min(16, 10 + Math.sqrt(n.value) * 2)),
+                        color: fontColor,
+                        strokeWidth: 3,
+                        strokeColor: '#1a1a2e'
+                    }
+                };
+            }));
+
+            // Compute max edge value for color scaling
+            var maxEdge = 1;
+            data.edges.forEach(function(e) { if (e.value > maxEdge) maxEdge = e.value; });
+
+            edgesDataset = new vis.DataSet(data.edges.map(function(e) {
+                var intensity = Math.min(1, e.value / maxEdge);
+                var r = Math.round(60 + intensity * 140);
+                var g = Math.round(60 + intensity * 140);
+                var b = Math.round(80 + intensity * 175);
+                var edgeColor = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.25 + intensity * 0.55) + ')';
+
+                return {
+                    id: e.id,
+                    from: e.from,
+                    to: e.to,
+                    value: e.value,
+                    title: e.value + ' shared patent' + (e.value !== 1 ? 's' : ''),
+                    color: {
+                        color: edgeColor,
+                        highlight: '#6ab0ff',
+                        hover: 'rgba(150,180,220,0.6)'
+                    },
+                    smooth: { type: 'continuous' }
+                };
+            }));
+
+            var container = document.getElementById('graph');
+
+            var options = {
+                nodes: {
+                    shape: 'dot',
+                    scaling: {
+                        min: 10,
+                        max: 55,
+                        label: { enabled: true, min: 10, max: 20 }
+                    },
+                    borderWidth: 2
+                },
+                edges: {
+                    scaling: { min: 1, max: 10 },
+                    smooth: { type: 'continuous', roundness: 0.4 },
+                    hoverWidth: 2
+                },
+                physics: {
+                    barnesHut: {
+                        gravitationalConstant: -4000,
+                        centralGravity: 0.25,
+                        springLength: 140,
+                        springConstant: 0.035,
+                        damping: 0.12,
+                        avoidOverlap: 0.3
+                    },
+                    stabilization: { iterations: 200, fit: true },
+                    maxVelocity: 40
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 150,
+                    navigationButtons: false,
+                    keyboard: true,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+
+            if (network) {
+                network.destroy();
+            }
+
+            network = new vis.Network(container, { nodes: nodesDataset, edges: edgesDataset }, options);
+
+            // Click -> communicate to Java
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    var nodeId = params.nodes[0];
+                    var node = nodesDataset.get(nodeId);
+                    if (window.javaBridge) {
+                        window.javaBridge.onNodeClicked(nodeId, node.label, node.value);
+                    }
+                }
+            });
+
+            // Hover highlighting: dim non-neighbors
+            network.on('hoverNode', function(params) {
+                highlightNeighbors(params.node);
+            });
+            network.on('blurNode', function(params) {
+                restoreAll();
+            });
+
+            // Build legend and stats
+            buildLegend(usedTags, ownerName);
+            document.getElementById('stats').innerHTML =
+                '<span>' + data.nodes.length + '</span> inventors &nbsp;\u00b7&nbsp; ' +
+                '<span>' + data.edges.length + '</span> collaborations';
+        }
+
+        function highlightNeighbors(nodeId) {
+            var neighbors = neighborMap[nodeId] || [];
+            var connectedSet = {};
+            connectedSet[nodeId] = true;
+            neighbors.forEach(function(n) { connectedSet[n] = true; });
+
+            var nodeUpdates = [];
+            var edgeUpdates = [];
+
+            allNodeIds.forEach(function(id) {
+                if (!connectedSet[id]) {
+                    nodeUpdates.push({ id: id, opacity: DIM_OPACITY });
+                } else {
+                    nodeUpdates.push({ id: id, opacity: 1.0 });
+                }
+            });
+            nodesDataset.update(nodeUpdates);
+
+            edgesDataset.forEach(function(e) {
+                if (connectedSet[e.from] && connectedSet[e.to] && (e.from === nodeId || e.to === nodeId)) {
+                    edgeUpdates.push({ id: e.id, hidden: false });
+                } else {
+                    edgeUpdates.push({ id: e.id, hidden: true });
+                }
+            });
+            edgesDataset.update(edgeUpdates);
+        }
+
+        function restoreAll() {
+            var nodeUpdates = allNodeIds.map(function(id) {
+                return { id: id, opacity: 1.0 };
+            });
+            nodesDataset.update(nodeUpdates);
+
+            var edgeUpdates = [];
+            edgesDataset.forEach(function(e) {
+                edgeUpdates.push({ id: e.id, hidden: false });
+            });
+            edgesDataset.update(edgeUpdates);
+        }
+
+        function resetLayout() {
+            if (network) {
+                network.stabilize(200);
+            }
+        }
+
+        // Utility: lighten a hex color by a percentage
+        function lighten(hex, percent) {
+            hex = hex.replace('#', '');
+            var r = parseInt(hex.substring(0, 2), 16);
+            var g = parseInt(hex.substring(2, 4), 16);
+            var b = parseInt(hex.substring(4, 6), 16);
+            r = Math.min(255, r + Math.round((255 - r) * percent / 100));
+            g = Math.min(255, g + Math.round((255 - g) * percent / 100));
+            b = Math.min(255, b + Math.round((255 - b) * percent / 100));
+            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+    </script>
+</body>
+</html>

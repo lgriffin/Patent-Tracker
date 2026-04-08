@@ -1,0 +1,43 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# Maven
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Application data — never commit patent data or user config
+*.db
+*.sqlite
+config.properties
+*.csv
+
+# Claude Code local settings
+.claude/
+
+# Specify local config
+.specify/
+
+# Environment / secrets
+.env*

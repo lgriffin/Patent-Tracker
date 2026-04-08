@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.DashboardController"
+            fitToWidth="true">
+    <VBox spacing="20">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <!-- Summary Cards -->
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="totalCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Total Patents" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="patentedCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Patented" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="allowedCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Allowed" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="examinationCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="In Examination" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="filedCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Filed/Pending" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="abandonedCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Abandoned/Expired" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <!-- Owner Stats -->
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="ownerNameLabel" text="Owner" styleClass="stat-label" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="ownerPrimaryLabel" text="0" styleClass="stat-value"/>
+                <Label text="As Primary" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="ownerSecondaryLabel" text="0" styleClass="stat-value"/>
+                <Label text="As Secondary" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="ownerAdditionalLabel" text="0" styleClass="stat-value"/>
+                <Label text="As Additional" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="ownerTotalLabel" text="0" styleClass="stat-value"/>
+                <Label text="Total Involvement" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <!-- Yearly Breakdown (Filed vs Issued vs Published) -->
+        <BarChart fx:id="yearlyBreakdownChart" title="Yearly Breakdown: Filed vs Issued vs Published" prefHeight="350">
+            <xAxis><CategoryAxis label="Year"/></xAxis>
+            <yAxis><NumberAxis label="Patents"/></yAxis>
+        </BarChart>
+
+        <!-- Status Pie + Classification Table side by side -->
+        <HBox spacing="15">
+            <PieChart fx:id="statusChart" title="Status Breakdown" prefHeight="300" HBox.hgrow="ALWAYS"/>
+            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                <Label text="Classifications (Tags)" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <TableView fx:id="classificationTable" prefHeight="280" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colClassRank" text="#" prefWidth="40" sortable="false"/>
+                        <TableColumn fx:id="colClassName" text="Classification" prefWidth="200" sortable="false"/>
+                        <TableColumn fx:id="colClassCount" text="Patents" prefWidth="80" sortable="false"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </HBox>
+
+        <!-- Top 10 Collaborators Table -->
+        <Label text="Top 10 Collaborators" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+        <TableView fx:id="collaboratorTable" prefHeight="330">
+            <columns>
+                <TableColumn fx:id="colRank" text="#" prefWidth="40" sortable="false"/>
+                <TableColumn fx:id="colCollaborator" text="Collaborator" prefWidth="200" sortable="false"/>
+                <TableColumn fx:id="colPatentCount" text="Patents" prefWidth="80" sortable="false"/>
+                <TableColumn fx:id="colCollabClassifications" text="Top Classifications" prefWidth="300" sortable="false"/>
+            </columns>
+        </TableView>
+    </VBox>
+</ScrollPane>

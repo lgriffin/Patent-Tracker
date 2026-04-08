@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.MainController">
+
+    <top>
+        <MenuBar>
+            <Menu text="File">
+                <MenuItem text="Import CSV..." fx:id="importCsvMenuItem" onAction="#handleImportCsv"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Exit" onAction="#handleExit"/>
+            </Menu>
+            <Menu text="Tools">
+                <MenuItem text="Sync All with USPTO..." fx:id="syncAllMenuItem" onAction="#handleSyncAll"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Auto-Tag Patents (AI)..." onAction="#handleAutoTag"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Manage Classifications..." onAction="#handleManageClassifications"/>
+            </Menu>
+            <Menu text="Settings">
+                <MenuItem text="Preferences..." onAction="#handleSettings"/>
+            </Menu>
+        </MenuBar>
+    </top>
+
+    <center>
+        <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE">
+            <Tab text="Patents" fx:id="patentsTab">
+                <fx:include source="patent-list.fxml" fx:id="patentList"/>
+            </Tab>
+            <Tab text="Inventor Graph" fx:id="graphTab">
+                <fx:include source="graph.fxml" fx:id="graph"/>
+            </Tab>
+            <Tab text="Dashboard" fx:id="dashboardTab">
+                <fx:include source="dashboard.fxml" fx:id="dashboard"/>
+            </Tab>
+        </TabPane>
+    </center>
+
+    <bottom>
+        <HBox fx:id="statusBar" styleClass="status-bar" spacing="10" alignment="CENTER_LEFT">
+            <Label fx:id="statusLabel" text="Ready"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

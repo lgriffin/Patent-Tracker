@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.ClassificationController"
+      spacing="12" prefWidth="550" prefHeight="500">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <Label text="Manage Classifications" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Label text="Define the formal classification categories you care about. These are used for organizing and filtering patents."
+           style="-fx-text-fill: #666; -fx-wrap-text: true;"/>
+
+    <Separator/>
+
+    <!-- Add new classification -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <TextField fx:id="newClassificationField" promptText="New classification name..." HBox.hgrow="ALWAYS"/>
+        <Button text="Add" onAction="#handleAdd" styleClass="primary-button"/>
+    </HBox>
+
+    <!-- Classifications list -->
+    <TableView fx:id="classificationsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colName" text="Classification" prefWidth="340"/>
+            <TableColumn fx:id="colCount" text="Patents" prefWidth="80"/>
+            <TableColumn fx:id="colActions" text="" prefWidth="100"/>
+        </columns>
+    </TableView>
+
+    <!-- Bottom buttons -->
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Label fx:id="statusLabel" text="" style="-fx-text-fill: #666;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="Close" onAction="#handleClose" styleClass="secondary-button"/>
+    </HBox>
+</VBox>

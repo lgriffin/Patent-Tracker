@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.SettingsController"
+      spacing="15" prefWidth="450">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <Label text="Settings" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+    <Separator/>
+
+    <Label text="Portfolio Owner" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Owner Name:"/>
+        <ComboBox fx:id="ownerNameCombo" promptText="Select or type inventor name..." prefWidth="250" editable="true" HBox.hgrow="ALWAYS"/>
+        <Button text="Apply" onAction="#handleApplyOwner" styleClass="primary-button"/>
+    </HBox>
+    <Label fx:id="ownerStatusLabel" text="" style="-fx-text-fill: #28a745; -fx-font-size: 11px;" managed="false" visible="false"/>
+
+    <Separator/>
+
+    <Label text="USPTO Open Data Portal" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+
+    <GridPane hgap="10" vgap="10">
+        <Label text="API Key:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <PasswordField fx:id="apiKeyField" promptText="Enter your USPTO ODP API key"
+                       prefWidth="300" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+        <Label text="Rate Limit Delay (ms):" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <Spinner fx:id="rateLimitSpinner" prefWidth="120" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+    </GridPane>
+
+    <Label text="Get your API key at: data.uspto.gov/myodp/landing"
+           style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+
+    <Separator/>
+
+    <Label text="Database" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Location:"/>
+        <Label fx:id="dbPathLabel" style="-fx-text-fill: #666;"/>
+    </HBox>
+
+    <Region VBox.vgrow="ALWAYS"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Cancel" onAction="#handleCancel" styleClass="secondary-button"/>
+        <Button text="Save" onAction="#handleSave" styleClass="primary-button"/>
+    </HBox>
+</VBox>
