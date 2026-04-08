@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.SyncController"
+      spacing="10" prefWidth="1050" prefHeight="500">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <Label text="USPTO Sync" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+    <!-- Progress -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <ProgressBar fx:id="progressBar" prefWidth="400"/>
+        <Label fx:id="progressLabel" text="Ready"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" styleClass="secondary-button"
+                managed="false" visible="false"/>
+    </HBox>
+
+    <!-- Results Table -->
+    <TableView fx:id="resultsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colApp" text="Application #" prefWidth="110"/>
+            <TableColumn fx:id="colTitle" text="Title" prefWidth="220"/>
+            <TableColumn fx:id="colStatus" text="Status Movement" prefWidth="320"/>
+            <TableColumn fx:id="colResult" text="Details" prefWidth="300"/>
+        </columns>
+    </TableView>
+
+    <!-- Summary Panel -->
+    <VBox fx:id="summaryPanel" spacing="8" managed="false" visible="false"
+          style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 12;">
+        <Label text="Sync Summary" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryTotalLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Total Synced" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryUpdatedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #28a745;"/>
+                <Label text="Updated" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryUnchangedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #6c757d;"/>
+                <Label text="Unchanged" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryErrorsLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #dc3545;"/>
+                <Label text="Errors" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryProgressedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #28a745;"/>
+                <Label text="Progressed" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryRegressedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #fd7e14;"/>
+                <Label text="Regressed" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryTerminalLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #dc3545;"/>
+                <Label text="Terminal" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryLateralLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #0078d4;"/>
+                <Label text="Lateral" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+        <!-- Changed fields breakdown -->
+        <Label text="Fields Changed:" style="-fx-font-weight: bold; -fx-padding: 4 0 0 0;"/>
+        <Label fx:id="summaryFieldsLabel" text="" style="-fx-text-fill: #555;"/>
+    </VBox>
+
+    <!-- Bottom bar -->
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Label fx:id="summaryLabel" text=""/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="Close" onAction="#handleClose" styleClass="secondary-button"/>
+    </HBox>
+</VBox>

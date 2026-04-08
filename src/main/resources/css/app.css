@@ -1,0 +1,233 @@
+/* Patent Portfolio Tracker - Application Styles */
+
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 13px;
+}
+
+/* Status Bar */
+.status-bar {
+    -fx-padding: 5 10 5 10;
+    -fx-background-color: #f0f0f0;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* Table View */
+.table-view {
+    -fx-selection-bar: #0078d4;
+    -fx-selection-bar-non-focused: #d0d0d0;
+}
+
+.table-view .column-header {
+    -fx-font-weight: bold;
+}
+
+/* Filter Panel */
+.filter-panel {
+    -fx-padding: 8;
+    -fx-spacing: 8;
+    -fx-background-color: #f8f8f8;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Tag Chips */
+.tag-chip {
+    -fx-background-color: #e1ecf4;
+    -fx-text-fill: #39739d;
+    -fx-padding: 2 8 2 8;
+    -fx-background-radius: 12;
+    -fx-font-size: 11px;
+}
+
+.tag-chip:hover {
+    -fx-background-color: #cee0ed;
+}
+
+/* AI-generated tag chips */
+.tag-chip-ai {
+    -fx-background-color: #ede9fe;
+    -fx-border-color: #7c3aed;
+    -fx-border-width: 1;
+    -fx-border-style: dashed;
+    -fx-border-radius: 12;
+}
+
+.tag-chip-ai:hover {
+    -fx-background-color: #ddd6fe;
+}
+
+.tag-chip .remove-button {
+    -fx-text-fill: #39739d;
+    -fx-cursor: hand;
+}
+
+/* Active Filter Chips */
+.filter-chip {
+    -fx-background-color: #0078d4;
+    -fx-text-fill: white;
+    -fx-padding: 3 10 3 10;
+    -fx-background-radius: 14;
+    -fx-font-size: 12px;
+}
+
+/* Search Bar */
+.search-field {
+    -fx-padding: 6 10 6 10;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-prompt-text-fill: #999999;
+}
+
+/* Detail View */
+.detail-header {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 10 0 5 0;
+}
+
+.detail-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #555555;
+}
+
+.detail-value {
+    -fx-text-fill: #333333;
+}
+
+/* Status Labels */
+.status-issued {
+    -fx-text-fill: #28a745;
+    -fx-font-weight: bold;
+}
+
+.status-filed {
+    -fx-text-fill: #0078d4;
+}
+
+.status-published {
+    -fx-text-fill: #6f42c1;
+}
+
+.status-abandoned {
+    -fx-text-fill: #dc3545;
+}
+
+.status-dropped {
+    -fx-text-fill: #dc3545;
+    -fx-strikethrough: true;
+}
+
+.status-allowed {
+    -fx-text-fill: #fd7e14;
+    -fx-font-weight: bold;
+}
+
+/* Graph Side Panel — dark theme to match graph canvas */
+.graph-side-panel {
+    -fx-padding: 12;
+    -fx-background-color: #16213e;
+    -fx-border-color: rgba(255,255,255,0.1);
+    -fx-border-width: 0 0 0 1;
+    -fx-pref-width: 300;
+}
+
+.graph-side-panel .label {
+    -fx-text-fill: #c8d6e5;
+}
+
+.graph-side-panel .detail-label {
+    -fx-text-fill: #8ab4f8;
+    -fx-font-weight: bold;
+}
+
+.graph-side-panel .separator .line {
+    -fx-border-color: rgba(255,255,255,0.1);
+}
+
+.graph-side-panel .list-view {
+    -fx-background-color: #1a1a2e;
+    -fx-border-color: rgba(255,255,255,0.08);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.graph-side-panel .list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ddd;
+    -fx-padding: 4 8;
+    -fx-font-size: 11px;
+}
+
+.graph-side-panel .list-view .list-cell:filled:selected {
+    -fx-background-color: rgba(106,176,255,0.2);
+    -fx-text-fill: #fff;
+}
+
+.graph-side-panel .list-view .list-cell:filled:hover {
+    -fx-background-color: rgba(106,176,255,0.1);
+}
+
+.graph-side-panel .button {
+    -fx-background-color: rgba(255,255,255,0.08);
+    -fx-text-fill: #c8d6e5;
+    -fx-border-color: rgba(255,255,255,0.15);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.graph-side-panel .button:hover {
+    -fx-background-color: rgba(255,255,255,0.15);
+}
+
+/* Dashboard Cards */
+.stat-card {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 15;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 4, 0, 0, 1);
+}
+
+.stat-card .stat-value {
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0078d4;
+}
+
+.stat-card .stat-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666666;
+}
+
+/* Sync View */
+.sync-changed {
+    -fx-background-color: #fff3cd;
+}
+
+.sync-error {
+    -fx-background-color: #f8d7da;
+}
+
+/* Buttons */
+.primary-button {
+    -fx-background-color: #0078d4;
+    -fx-text-fill: white;
+    -fx-padding: 6 16 6 16;
+    -fx-background-radius: 4;
+}
+
+.primary-button:hover {
+    -fx-background-color: #106ebe;
+}
+
+.secondary-button {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #333333;
+    -fx-padding: 6 16 6 16;
+    -fx-background-radius: 4;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 4;
+}

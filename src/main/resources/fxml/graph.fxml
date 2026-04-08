@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.web.WebView?>
+<?import javafx.geometry.Insets?>
+
+<HBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.GraphController">
+
+    <!-- Graph WebView -->
+    <WebView fx:id="webView" HBox.hgrow="ALWAYS"/>
+
+    <!-- Side Panel -->
+    <VBox fx:id="sidePanel" styleClass="graph-side-panel" prefWidth="280" spacing="10"
+          managed="false" visible="false">
+        <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+
+        <Label fx:id="inventorNameLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #fff;" wrapText="true"/>
+        <Label fx:id="inventorCountLabel" style="-fx-text-fill: #8ab4f8;"/>
+
+        <Separator/>
+
+        <Label text="Patents" styleClass="detail-label"/>
+        <ListView fx:id="inventorPatentsList" prefHeight="200"/>
+
+        <Separator/>
+
+        <Label text="Top Co-Inventors" styleClass="detail-label"/>
+        <ListView fx:id="coInventorsList" prefHeight="150"/>
+
+        <Region VBox.vgrow="ALWAYS"/>
+
+        <Button text="Reset Layout" onAction="#handleResetLayout" styleClass="secondary-button" maxWidth="Infinity"/>
+    </VBox>
+</HBox>

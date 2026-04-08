@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.PatentDetailController"
+            fitToWidth="true">
+    <VBox spacing="12">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <!-- Title (editable) -->
+        <TextField fx:id="titleField" styleClass="detail-header" promptText="Patent Title"/>
+
+        <!-- Core Fields -->
+        <GridPane hgap="12" vgap="8">
+            <columnConstraints>
+                <ColumnConstraints minWidth="120" prefWidth="130"/>
+                <ColumnConstraints hgrow="ALWAYS"/>
+            </columnConstraints>
+
+            <Label text="File Number:" styleClass="detail-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <Label fx:id="fileNumberLabel" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+            <Label text="Status:" styleClass="detail-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="statusCombo" editable="true" prefWidth="200" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+            <Label text="Filing Date:" styleClass="detail-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+            <DatePicker fx:id="filingDatePicker" prefWidth="200" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+            <Label text="Application #:" styleClass="detail-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+            <TextField fx:id="appNumberField" promptText="e.g. 15/661380" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+            <Label text="Patent #:" styleClass="detail-label" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+            <TextField fx:id="patentNumberField" promptText="e.g. 10380367" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+            <Label text="Issue/Grant Date:" styleClass="detail-label" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+            <DatePicker fx:id="issueDatePicker" prefWidth="200" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+            <Label text="Publication #:" styleClass="detail-label" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+            <TextField fx:id="pubNumberField" promptText="Publication number" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+            <Label text="Publication Date:" styleClass="detail-label" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+            <DatePicker fx:id="pubDatePicker" prefWidth="200" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+            <Label text="Suffix:" styleClass="detail-label" GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+            <TextField fx:id="suffixField" prefWidth="100" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+
+            <Label text="Formal Classification:" styleClass="detail-label" GridPane.rowIndex="9" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="classificationCombo" editable="true" prefWidth="250" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+        </GridPane>
+
+        <!-- Save / Sync / PDF buttons -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="saveButton" text="Save Changes" onAction="#handleSave" styleClass="primary-button"/>
+            <Label fx:id="saveStatusLabel" style="-fx-text-fill: green;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="pdfButton" text="View PDF" onAction="#handleViewPdf" styleClass="secondary-button"/>
+            <Button text="Sync with USPTO" onAction="#handleSyncPatent" styleClass="secondary-button"/>
+            <Button text="View on Google Patents" onAction="#handleViewGooglePatents" styleClass="secondary-button"/>
+        </HBox>
+        <Label fx:id="pdfStatusLabel" style="-fx-font-size: 11px;" managed="false" visible="false"/>
+
+        <Separator/>
+
+        <!-- Inventors -->
+        <Label text="Inventors" styleClass="detail-label" style="-fx-font-size: 14px;"/>
+        <VBox fx:id="inventorsBox" spacing="4"/>
+
+        <Separator/>
+
+        <!-- Tags -->
+        <HBox spacing="8" alignment="CENTER_LEFT">
+            <Label text="Tags" styleClass="detail-label" style="-fx-font-size: 14px;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="newTagField" promptText="Add tag..." prefWidth="150" onAction="#handleAddTag"/>
+            <Button text="Add" onAction="#handleAddTag" styleClass="secondary-button"/>
+        </HBox>
+        <FlowPane fx:id="tagsPane" hgap="6" vgap="6"/>
+
+        <Separator/>
+
+        <!-- Related Filings -->
+        <Label text="Related Filings" styleClass="detail-label" style="-fx-font-size: 14px;"
+               fx:id="relatedLabel" managed="false" visible="false"/>
+        <VBox fx:id="relatedBox" spacing="4" managed="false" visible="false"/>
+
+        <Separator fx:id="relatedSeparator" managed="false" visible="false"/>
+
+        <!-- Change History -->
+        <Label text="Change History" styleClass="detail-label" style="-fx-font-size: 14px;"/>
+        <TableView fx:id="historyTable" prefHeight="150">
+            <columns>
+                <TableColumn fx:id="histColTimestamp" text="Timestamp" prefWidth="150"/>
+                <TableColumn fx:id="histColField" text="Field" prefWidth="120"/>
+                <TableColumn fx:id="histColOld" text="Previous" prefWidth="120"/>
+                <TableColumn fx:id="histColNew" text="New" prefWidth="120"/>
+                <TableColumn fx:id="histColSource" text="Source" prefWidth="100"/>
+            </columns>
+        </TableView>
+    </VBox>
+</ScrollPane>
