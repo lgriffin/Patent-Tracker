@@ -27,12 +27,16 @@
 
     <GridPane hgap="10" vgap="10">
         <Label text="API Key:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-        <PasswordField fx:id="apiKeyField" promptText="Enter your USPTO ODP API key"
-                       prefWidth="300" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+        <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="1">
+            <PasswordField fx:id="apiKeyField" promptText="Enter your USPTO ODP API key"
+                           prefWidth="250" HBox.hgrow="ALWAYS"/>
+            <Button text="Apply" onAction="#handleApplyApiKey" styleClass="primary-button"/>
+        </HBox>
 
         <Label text="Rate Limit Delay (ms):" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
         <Spinner fx:id="rateLimitSpinner" prefWidth="120" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
     </GridPane>
+    <Label fx:id="apiKeyStatusLabel" text="" style="-fx-text-fill: #28a745; -fx-font-size: 11px;" managed="false" visible="false"/>
 
     <Label text="Get your API key at: data.uspto.gov/myodp/landing"
            style="-fx-text-fill: #666; -fx-font-size: 11px;"/>

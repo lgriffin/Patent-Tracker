@@ -25,6 +25,7 @@ public class SettingsController {
     @FXML private Spinner<Integer> rateLimitSpinner;
     @FXML private Label dbPathLabel;
     @FXML private Label ownerStatusLabel;
+    @FXML private Label apiKeyStatusLabel;
 
     private Runnable onOwnerChanged;
 
@@ -98,6 +99,19 @@ public class SettingsController {
         if (onOwnerChanged != null) {
             onOwnerChanged.run();
         }
+    }
+
+    @FXML
+    private void handleApplyApiKey() {
+        Properties props = loadProperties();
+        props.setProperty("uspto.api.key", apiKeyField.getText());
+        saveProperties(props);
+        saved = true;
+
+        apiKeyStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+        apiKeyStatusLabel.setText("API key saved.");
+        apiKeyStatusLabel.setManaged(true);
+        apiKeyStatusLabel.setVisible(true);
     }
 
     private boolean saved = false;
