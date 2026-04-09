@@ -205,7 +205,7 @@ public class MainController {
             Stage stage = new Stage();
             stage.setTitle("Settings");
             stage.initModality(Modality.APPLICATION_MODAL);
-            Scene scene = new Scene(root, 500, 380);
+            Scene scene = new Scene(root, 520, 520);
             scene.getStylesheets().add(getClass().getResource("/css/app.css").toExternalForm());
             stage.setScene(scene);
             stage.showAndWait();
