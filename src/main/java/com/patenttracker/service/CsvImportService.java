@@ -148,7 +148,8 @@ public class CsvImportService {
         p.setFileNumber(clean(cols[1]));
 
         // Col 2: Title
-        p.setTitle(clean(cols[2]));
+        String title = clean(cols[2]);
+        p.setTitle(title != null ? title : "Untitled");
 
         // Col 3: Filing Date
         p.setFilingDate(parseDate(clean(cols[3])));
@@ -168,7 +169,9 @@ public class CsvImportService {
         // Col 8: Patent #
         p.setPatentNumber(clean(cols[8]));
 
-        // Col 9: PTO Status — skipped; USPTO sync is the authoritative source
+        // Col 9: PTO Status — used for initial import; USPTO sync overwrites later
+        String ptoStatus = clean(cols[9]);
+        p.setPtoStatus(ptoStatus != null ? ptoStatus : "Unknown");
 
         // Col 10: Suffix
         String suffix = clean(cols[10]);
