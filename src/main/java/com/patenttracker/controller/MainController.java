@@ -162,6 +162,33 @@ public class MainController {
     }
 
     @FXML
+    private void handleDownloadAllPdfs() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/pdf-download.fxml"));
+            Parent root = loader.load();
+
+            PdfDownloadController controller = loader.getController();
+            controller.setParentController(patentListController);
+
+            Stage stage = new Stage();
+            stage.setTitle("Download PDFs");
+            stage.initModality(Modality.APPLICATION_MODAL);
+            Scene scene = new Scene(root, 900, 500);
+            scene.getStylesheets().add(getClass().getResource("/css/app.css").toExternalForm());
+            stage.setScene(scene);
+            stage.show();
+
+            controller.startBulkDownload();
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("PDF Download Error");
+            alert.setHeaderText("Failed to open PDF download view");
+            alert.setContentText(e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    @FXML
     private void handleManageClassifications() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/classifications.fxml"));

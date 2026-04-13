@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.patenttracker.controller.PdfDownloadController"
+      spacing="10" prefWidth="900" prefHeight="500">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <Label text="Download PDFs from USPTO" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+    <!-- Progress -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <ProgressBar fx:id="progressBar" prefWidth="400"/>
+        <Label fx:id="progressLabel" text="Ready"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" styleClass="secondary-button"
+                managed="false" visible="false"/>
+    </HBox>
+
+    <!-- Results Table -->
+    <TableView fx:id="resultsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colFileNumber" text="File Number" prefWidth="130"/>
+            <TableColumn fx:id="colTitle" text="Title" prefWidth="280"/>
+            <TableColumn fx:id="colSource" text="Source" prefWidth="100"/>
+            <TableColumn fx:id="colResult" text="Result" prefWidth="320"/>
+        </columns>
+    </TableView>
+
+    <!-- Summary Panel -->
+    <VBox fx:id="summaryPanel" spacing="8" managed="false" visible="false"
+          style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 12;">
+        <Label text="Download Summary" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryTotalLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Total Attempted" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryDownloadedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #28a745;"/>
+                <Label text="Downloaded" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summarySkippedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #6c757d;"/>
+                <Label text="Already Cached" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="summaryFailedLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px; -fx-text-fill: #dc3545;"/>
+                <Label text="Failed" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+    </VBox>
+
+    <!-- Bottom bar -->
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Label fx:id="summaryLabel" text=""/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="Close" onAction="#handleClose" styleClass="secondary-button"/>
+    </HBox>
+</VBox>

@@ -2,6 +2,7 @@ package com.patenttracker.controller;
 
 import com.patenttracker.dao.*;
 import com.patenttracker.model.*;
+import com.patenttracker.service.PdfDownloadService;
 import com.patenttracker.service.UsptoSyncService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -55,6 +56,7 @@ public class PatentDetailController {
     private PatentListController parentController;
     private final PatentDao patentDao = new PatentDao();
     private final StatusUpdateDao statusUpdateDao = new StatusUpdateDao();
+    private final PdfDownloadService pdfDownloadService = new PdfDownloadService();
 
     @FXML
     public void initialize() {
@@ -401,23 +403,17 @@ public class PatentDetailController {
     }
 
     private void updatePdfStatus() {
-        if (patent.getPdfPath() != null && !patent.getPdfPath().isBlank()) {
-            java.io.File pdfFile = new java.io.File(patent.getPdfPath());
-            if (pdfFile.exists()) {
-                pdfButton.setText("View PDF");
-                pdfStatusLabel.setText("PDF cached: " + patent.getPdfPath());
-                pdfStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: green;");
-                pdfStatusLabel.setManaged(true);
-                pdfStatusLabel.setVisible(true);
-                return;
-            }
-        }
-        pdfButton.setText("Download PDF");
-        if (patent.getPatentNumber() != null && !patent.getPatentNumber().isBlank()) {
+        if (pdfDownloadService.hasCachedPdf(patent)) {
+            pdfButton.setText("View PDF");
+            pdfStatusLabel.setText("PDF cached: " + patent.getPdfPath());
+            pdfStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: green;");
+        } else if (pdfDownloadService.canDownload(patent)) {
+            pdfButton.setText("Download PDF");
             pdfStatusLabel.setText("PDF not yet cached. Click to download from USPTO.");
             pdfStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
         } else {
-            pdfStatusLabel.setText("No patent number available for PDF download.");
+            pdfButton.setText("Download PDF");
+            pdfStatusLabel.setText("No patent or publication number available for PDF download.");
             pdfStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
         }
         pdfStatusLabel.setManaged(true);
@@ -426,25 +422,19 @@ public class PatentDetailController {
 
     @FXML
     private void handleViewPdf() {
-        // If PDF is already cached, open it
-        if (patent.getPdfPath() != null && !patent.getPdfPath().isBlank()) {
-            java.io.File pdfFile = new java.io.File(patent.getPdfPath());
-            if (pdfFile.exists()) {
-                try {
-                    java.awt.Desktop.getDesktop().open(pdfFile);
-                } catch (Exception e) {
-                    saveStatusLabel.setStyle("-fx-text-fill: red;");
-                    saveStatusLabel.setText("Could not open PDF: " + e.getMessage());
-                }
-                return;
+        if (pdfDownloadService.hasCachedPdf(patent)) {
+            try {
+                pdfDownloadService.openPdf(patent);
+            } catch (Exception e) {
+                saveStatusLabel.setStyle("-fx-text-fill: red;");
+                saveStatusLabel.setText("Could not open PDF: " + e.getMessage());
             }
+            return;
         }
 
-        // Download PDF from USPTO full-text (free, no API key)
-        String patentNum = patent.getPatentNumber();
-        if (patentNum == null || patentNum.isBlank()) {
+        if (!pdfDownloadService.canDownload(patent)) {
             saveStatusLabel.setStyle("-fx-text-fill: red;");
-            saveStatusLabel.setText("No patent number — cannot download PDF.");
+            saveStatusLabel.setText("No patent or publication number \u2014 cannot download PDF.");
             return;
         }
 
@@ -453,80 +443,19 @@ public class PatentDetailController {
         saveStatusLabel.setText("Downloading PDF...");
 
         new Thread(() -> {
-            try {
-                String pdfDir = System.getProperty("user.home") + "/.patenttracker/pdfs";
-                java.nio.file.Files.createDirectories(java.nio.file.Path.of(pdfDir));
-                String pdfPath = pdfDir + "/US" + patentNum + ".pdf";
-
-                // USPTO full-text PDF URL
-                String url = "https://pimg-fpiw.uspto.gov/fdd/67/033/103/0.pdf";
-                // Construct URL from patent number: split into groups for USPTO path
-                // Format: https://pimg-fpiw.uspto.gov/fdd/{last2}/{next3}/{first3-4}/0.pdf
-                String padded = String.format("%08d", Long.parseLong(patentNum));
-                String group1 = padded.substring(padded.length() - 2);
-                String group2 = padded.substring(padded.length() - 5, padded.length() - 2);
-                String group3 = padded.substring(0, padded.length() - 5);
-                url = "https://pimg-fpiw.uspto.gov/fdd/" + group1 + "/" + group2 + "/" + group3 + "/0.pdf";
-
-                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                        .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
-                        .connectTimeout(java.time.Duration.ofSeconds(15))
-                        .build();
-
-                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                        .uri(java.net.URI.create(url))
-                        .timeout(java.time.Duration.ofSeconds(60))
-                        .GET()
-                        .build();
-
-                java.net.http.HttpResponse<java.nio.file.Path> response = client.send(request,
-                        java.net.http.HttpResponse.BodyHandlers.ofFile(java.nio.file.Path.of(pdfPath)));
-
-                if (response.statusCode() == 200) {
-                    // Verify it's actually a PDF (not an error page)
-                    long fileSize = java.nio.file.Files.size(java.nio.file.Path.of(pdfPath));
-                    if (fileSize < 1024) {
-                        // Too small, likely an error page
-                        java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(pdfPath));
-                        Platform.runLater(() -> {
-                            pdfButton.setDisable(false);
-                            saveStatusLabel.setStyle("-fx-text-fill: red;");
-                            saveStatusLabel.setText("PDF not available from USPTO. Try Google Patents instead.");
-                        });
-                        return;
-                    }
-
-                    patent.setPdfPath(pdfPath);
-                    patentDao.update(patent);
-
-                    Platform.runLater(() -> {
-                        pdfButton.setDisable(false);
-                        saveStatusLabel.setStyle("-fx-text-fill: green;");
-                        saveStatusLabel.setText("PDF downloaded and cached.");
-                        updatePdfStatus();
-                    });
+            PdfDownloadService.DownloadResult result = pdfDownloadService.downloadPdf(patent);
+            Platform.runLater(() -> {
+                pdfButton.setDisable(false);
+                if (result.success()) {
+                    saveStatusLabel.setStyle("-fx-text-fill: green;");
+                    saveStatusLabel.setText("PDF downloaded and cached (" + result.sourceType() + ").");
+                    updatePdfStatus();
+                    if (parentController != null) parentController.refreshData();
                 } else {
-                    java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(pdfPath));
-                    Platform.runLater(() -> {
-                        pdfButton.setDisable(false);
-                        saveStatusLabel.setStyle("-fx-text-fill: red;");
-                        saveStatusLabel.setText("PDF download failed (HTTP " + response.statusCode()
-                                + "). Try Google Patents for manual download.");
-                    });
+                    saveStatusLabel.setStyle("-fx-text-fill: red;");
+                    saveStatusLabel.setText(result.error());
                 }
-            } catch (NumberFormatException e) {
-                Platform.runLater(() -> {
-                    pdfButton.setDisable(false);
-                    saveStatusLabel.setStyle("-fx-text-fill: red;");
-                    saveStatusLabel.setText("Invalid patent number format for PDF download.");
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    pdfButton.setDisable(false);
-                    saveStatusLabel.setStyle("-fx-text-fill: red;");
-                    saveStatusLabel.setText("PDF download failed: " + e.getMessage());
-                });
-            }
+            });
         }).start();
     }
 

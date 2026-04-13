@@ -14,6 +14,7 @@
             </Menu>
             <Menu text="Tools">
                 <MenuItem text="Sync All with USPTO..." fx:id="syncAllMenuItem" onAction="#handleSyncAll"/>
+                <MenuItem text="Download All PDFs..." onAction="#handleDownloadAllPdfs"/>
                 <SeparatorMenuItem/>
                 <MenuItem text="Auto-Tag Patents (AI)..." onAction="#handleAutoTag"/>
                 <SeparatorMenuItem/>
