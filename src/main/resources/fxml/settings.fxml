@@ -50,6 +50,17 @@
         <Label fx:id="dbPathLabel" style="-fx-text-fill: #666;"/>
     </HBox>
 
+    <Separator/>
+
+    <Label text="Cached PDFs" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label fx:id="pdfCacheLabel" style="-fx-text-fill: #666;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="Flush All PDFs" onAction="#handleFlushPdfs" style="-fx-background-color: #dc3545; -fx-text-fill: white; -fx-background-radius: 4;"/>
+    </HBox>
+    <Label fx:id="flushStatusLabel" text="" style="-fx-font-size: 11px;" managed="false" visible="false"/>
+
     <Region VBox.vgrow="ALWAYS"/>
 
     <HBox spacing="10" alignment="CENTER_RIGHT">

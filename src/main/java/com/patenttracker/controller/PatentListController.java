@@ -6,11 +6,14 @@ import com.patenttracker.dao.TagDao;
 import com.patenttracker.model.Inventor;
 import com.patenttracker.model.Patent;
 import com.patenttracker.model.Tag;
+import com.patenttracker.service.PdfDownloadService;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -34,6 +37,7 @@ public class PatentListController {
     @FXML private Label resultCountLabel;
     @FXML private FlowPane activeFiltersPane;
     @FXML private TableView<Patent> patentTable;
+    @FXML private TableColumn<Patent, String> colPdf;
     @FXML private TableColumn<Patent, String> colTitle;
     @FXML private TableColumn<Patent, String> colFileNumber;
     @FXML private TableColumn<Patent, String> colFilingDate;
@@ -48,11 +52,70 @@ public class PatentListController {
 
     private final ObservableList<Patent> patents = FXCollections.observableArrayList();
     private PatentDao patentDao;
+    private final PdfDownloadService pdfDownloadService = new PdfDownloadService();
     private int totalCount;
 
     @FXML
     public void initialize() {
         patentDao = new PatentDao();
+
+        // PDF column — show icon based on cached/downloadable status
+        colPdf.setCellValueFactory(cd -> {
+            Patent p = cd.getValue();
+            if (pdfDownloadService.hasCachedPdf(p)) return new SimpleStringProperty("cached");
+            if (pdfDownloadService.canDownload(p)) return new SimpleStringProperty("available");
+            return new SimpleStringProperty("none");
+        });
+        colPdf.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    setOnMouseClicked(null);
+                    setTooltip(null);
+                    return;
+                }
+                setAlignment(Pos.CENTER);
+                switch (item) {
+                    case "cached" -> {
+                        setText("\u2713");  // checkmark
+                        setStyle("-fx-text-fill: #28a745; -fx-font-weight: bold; -fx-cursor: hand;");
+                        setTooltip(new Tooltip("PDF cached \u2014 click to open"));
+                        setOnMouseClicked(e -> {
+                            Patent p = getTableView().getItems().get(getIndex());
+                            try {
+                                pdfDownloadService.openPdf(p);
+                            } catch (Exception ex) {
+                                showError("Could not open PDF", ex.getMessage());
+                            }
+                        });
+                    }
+                    case "available" -> {
+                        setText("\u2193");  // down arrow
+                        setStyle("-fx-text-fill: #0078d4; -fx-cursor: hand;");
+                        setTooltip(new Tooltip("Click to download PDF"));
+                        setOnMouseClicked(e -> {
+                            Patent p = getTableView().getItems().get(getIndex());
+                            setText("\u231B");  // hourglass
+                            setStyle("-fx-text-fill: #fd7e14;");
+                            setOnMouseClicked(null);
+                            new Thread(() -> {
+                                PdfDownloadService.DownloadResult result = pdfDownloadService.downloadPdf(p);
+                                Platform.runLater(() -> patentTable.refresh());
+                            }).start();
+                        });
+                    }
+                    default -> {
+                        setText("\u2014");  // em dash
+                        setStyle("-fx-text-fill: #999;");
+                        setTooltip(new Tooltip("No PDF available"));
+                        setOnMouseClicked(null);
+                    }
+                }
+            }
+        });
 
         // Set up cell value factories
         colTitle.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getTitle()));

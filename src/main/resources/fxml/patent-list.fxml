@@ -32,6 +32,7 @@
     <!-- Patent Table -->
     <TableView fx:id="patentTable" VBox.vgrow="ALWAYS">
         <columns>
+            <TableColumn fx:id="colPdf" text="PDF" prefWidth="40" minWidth="40" maxWidth="50" sortable="false"/>
             <TableColumn fx:id="colTitle" text="Title" prefWidth="280"/>
             <TableColumn fx:id="colFileNumber" text="File Number" prefWidth="130"/>
             <TableColumn fx:id="colFilingDate" text="Filing Date" prefWidth="90"/>

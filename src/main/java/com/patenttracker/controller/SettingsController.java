@@ -2,6 +2,7 @@ package com.patenttracker.controller;
 
 import com.patenttracker.dao.InventorDao;
 import com.patenttracker.model.Inventor;
+import com.patenttracker.service.PdfDownloadService;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 public class SettingsController {
@@ -26,6 +28,8 @@ public class SettingsController {
     @FXML private Label dbPathLabel;
     @FXML private Label ownerStatusLabel;
     @FXML private Label apiKeyStatusLabel;
+    @FXML private Label pdfCacheLabel;
+    @FXML private Label flushStatusLabel;
 
     private Runnable onOwnerChanged;
 
@@ -54,6 +58,7 @@ public class SettingsController {
 
         dbPathLabel.setText(CONFIG_DIR + "/patents.db");
 
+        refreshPdfCacheLabel();
         loadSettings();
     }
 
@@ -141,6 +146,45 @@ public class SettingsController {
 
     public boolean wasSaved() {
         return saved;
+    }
+
+    private void refreshPdfCacheLabel() {
+        PdfDownloadService pdfService = new PdfDownloadService();
+        int[] counts = pdfService.getCounts();
+        pdfCacheLabel.setText(counts[2] + " PDFs cached (" + counts[1] + " eligible patents)");
+    }
+
+    @FXML
+    private void handleFlushPdfs() {
+        // Confirmation dialog requiring the user to type DELETE
+        TextInputDialog confirm = new TextInputDialog();
+        confirm.setTitle("Confirm Flush");
+        confirm.setHeaderText("This will permanently delete all cached PDFs.");
+        confirm.setContentText("Type DELETE to confirm:");
+        Optional<String> result = confirm.showAndWait();
+
+        if (result.isEmpty() || !"DELETE".equals(result.get().trim())) {
+            flushStatusLabel.setStyle("-fx-text-fill: #666; -fx-font-size: 11px;");
+            flushStatusLabel.setText("Flush cancelled.");
+            flushStatusLabel.setManaged(true);
+            flushStatusLabel.setVisible(true);
+            return;
+        }
+
+        try {
+            PdfDownloadService pdfService = new PdfDownloadService();
+            int removed = pdfService.flushAllPdfs();
+            flushStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+            flushStatusLabel.setText("Flushed " + removed + " cached PDF(s).");
+            flushStatusLabel.setManaged(true);
+            flushStatusLabel.setVisible(true);
+            refreshPdfCacheLabel();
+        } catch (SQLException e) {
+            flushStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            flushStatusLabel.setText("Flush failed: " + e.getMessage());
+            flushStatusLabel.setManaged(true);
+            flushStatusLabel.setVisible(true);
+        }
     }
 
     @FXML

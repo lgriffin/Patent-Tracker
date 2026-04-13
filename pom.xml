@@ -98,6 +98,35 @@
     </build>
 
     <profiles>
+        <!-- Auto-detect JavaFX platform from OS -->
+        <profile>
+            <id>javafx-win</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <properties>
+                <javafx.platform>win</javafx.platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>javafx-linux</id>
+            <activation>
+                <os><family>unix</family><name>Linux</name></os>
+            </activation>
+            <properties>
+                <javafx.platform>linux</javafx.platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>javafx-mac</id>
+            <activation>
+                <os><family>mac</family></os>
+            </activation>
+            <properties>
+                <javafx.platform>mac</javafx.platform>
+            </properties>
+        </profile>
+
         <profile>
             <id>fat-jar</id>
             <build>

@@ -231,3 +231,25 @@
     -fx-border-color: #cccccc;
     -fx-border-radius: 4;
 }
+
+/* PDF Indicator Column */
+.pdf-cached {
+    -fx-text-fill: #28a745;
+    -fx-font-weight: bold;
+}
+
+.pdf-available {
+    -fx-text-fill: #0078d4;
+}
+
+.pdf-unavailable {
+    -fx-text-fill: #999999;
+}
+
+.pdf-downloading {
+    -fx-text-fill: #fd7e14;
+}
+
+.pdf-failed {
+    -fx-text-fill: #dc3545;
+}
