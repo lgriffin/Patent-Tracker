@@ -36,6 +36,10 @@
                 <Label fx:id="abandonedCountLabel" text="0" styleClass="stat-value"/>
                 <Label text="Abandoned/Expired" styleClass="stat-label"/>
             </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="continuanceCountLabel" text="0" styleClass="stat-value"/>
+                <Label text="Continuances" styleClass="stat-label"/>
+            </VBox>
         </HBox>
 
         <!-- Owner Stats -->
