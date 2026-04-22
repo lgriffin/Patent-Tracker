@@ -20,6 +20,10 @@ public class StatsService {
         return queryInt("SELECT COUNT(*) FROM patent");
     }
 
+    public int getContinuanceCount() throws SQLException {
+        return queryInt("SELECT COUNT(*) FROM patent WHERE suffix LIKE '%CON%'");
+    }
+
     public Map<String, Integer> getCountByStatus() throws SQLException {
         return queryMap("SELECT pto_status, COUNT(*) as cnt FROM patent GROUP BY pto_status ORDER BY cnt DESC");
     }

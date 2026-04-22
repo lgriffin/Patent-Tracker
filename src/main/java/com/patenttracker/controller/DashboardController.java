@@ -23,6 +23,7 @@ public class DashboardController {
     @FXML private Label examinationCountLabel;
     @FXML private Label filedCountLabel;
     @FXML private Label abandonedCountLabel;
+    @FXML private Label continuanceCountLabel;
     @FXML private Label ownerNameLabel;
     @FXML private Label ownerPrimaryLabel;
     @FXML private Label ownerSecondaryLabel;
@@ -85,6 +86,8 @@ public class DashboardController {
             examinationCountLabel.setText(String.valueOf(grouped.getOrDefault("In Examination", 0)));
             filedCountLabel.setText(String.valueOf(grouped.getOrDefault("Filed/Pending", 0)));
             abandonedCountLabel.setText(String.valueOf(grouped.getOrDefault("Abandoned/Expired", 0)));
+
+            continuanceCountLabel.setText(String.valueOf(statsService.getContinuanceCount()));
 
             // Owner stats
             String ownerName = SettingsController.getOwnerName();
