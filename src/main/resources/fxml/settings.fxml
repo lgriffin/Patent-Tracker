@@ -75,6 +75,13 @@
     <Label text="Leave blank or set to 'claude' if Claude Code is on your PATH."
            style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
 
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Analysis Timeout (seconds):"/>
+        <Spinner fx:id="analysisTimeoutSpinner" prefWidth="120"/>
+    </HBox>
+    <Label text="Timeout for cross-patent analyses. Increase for large portfolios (default: 600s)."
+           style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+
     <Region VBox.vgrow="ALWAYS"/>
 
     <HBox spacing="10" alignment="CENTER_RIGHT">
