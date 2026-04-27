@@ -36,6 +36,7 @@ public class SettingsController {
     @FXML private Label flushStatusLabel;
     @FXML private TextField claudeCliPathField;
     @FXML private Label claudeCliStatusLabel;
+    @FXML private Spinner<Integer> analysisTimeoutSpinner;
 
     private Runnable onOwnerChanged;
 
@@ -43,6 +44,10 @@ public class SettingsController {
     public void initialize() {
         rateLimitSpinner.setValueFactory(
             new SpinnerValueFactory.IntegerSpinnerValueFactory(100, 5000, 1100, 100)
+        );
+
+        analysisTimeoutSpinner.setValueFactory(
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(120, 1200, 600, 60)
         );
 
         // Make the combo editable so users can type a name not yet in the DB
@@ -73,6 +78,12 @@ public class SettingsController {
         ownerNameCombo.setValue(props.getProperty("owner.name", "Leigh Griffin"));
         apiKeyField.setText(props.getProperty("uspto.api.key", DEFAULT_API_KEY));
         claudeCliPathField.setText(props.getProperty("claude.cli.path", "claude"));
+        String timeoutStr = props.getProperty("claude.analysis.timeout", "600");
+        try {
+            analysisTimeoutSpinner.getValueFactory().setValue(Integer.parseInt(timeoutStr));
+        } catch (NumberFormatException e) {
+            analysisTimeoutSpinner.getValueFactory().setValue(600);
+        }
         String delay = props.getProperty("uspto.rate.delay", "1100");
         try {
             rateLimitSpinner.getValueFactory().setValue(Integer.parseInt(delay));
@@ -145,6 +156,7 @@ public class SettingsController {
         props.setProperty("uspto.api.key", apiKeyField.getText());
         props.setProperty("uspto.rate.delay", String.valueOf(rateLimitSpinner.getValue()));
         props.setProperty("claude.cli.path", claudeCliPathField.getText());
+        props.setProperty("claude.analysis.timeout", String.valueOf(analysisTimeoutSpinner.getValue()));
         saveProperties(props);
 
         saved = true;
@@ -277,6 +289,15 @@ public class SettingsController {
 
     public static String getClaudeCliPath() {
         return loadProperties().getProperty("claude.cli.path", "claude");
+    }
+
+    public static int getAnalysisTimeout() {
+        String timeout = loadProperties().getProperty("claude.analysis.timeout", "600");
+        try {
+            return Integer.parseInt(timeout);
+        } catch (NumberFormatException e) {
+            return 600;
+        }
     }
 
     public static int getRateLimitDelay() {

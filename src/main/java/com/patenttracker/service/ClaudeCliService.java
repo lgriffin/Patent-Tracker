@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 public class ClaudeCliService {
 
-    private static final int DEFAULT_TIMEOUT_SECONDS = 120;
+    private static final int DEFAULT_TIMEOUT_SECONDS = 180;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Map<String, String> templateCache = new HashMap<>();
 

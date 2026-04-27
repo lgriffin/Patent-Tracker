@@ -1,5 +1,6 @@
 package com.patenttracker.service;
 
+import com.patenttracker.controller.SettingsController;
 import com.patenttracker.dao.PatentAnalysisDao;
 import com.patenttracker.dao.PatentDao;
 import com.patenttracker.dao.PatentTextDao;
@@ -160,7 +161,8 @@ public class InsightService {
             String template = ClaudeCliService.loadPromptTemplate(templateName);
             Map<String, String> variables = Map.of("portfolio_summaries", summaries.toString());
 
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, 300);
+            int timeout = SettingsController.getAnalysisTimeout();
+            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
 
             if (cliResult.success() && cliResult.resultJson() != null) {
                 PatentAnalysis pa = new PatentAnalysis();
@@ -231,7 +233,8 @@ public class InsightService {
                     "additional_context", additionalContext.toString()
             );
 
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, 300);
+            int timeout = SettingsController.getAnalysisTimeout();
+            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
 
             if (cliResult.success() && cliResult.resultJson() != null) {
                 PatentAnalysis pa = new PatentAnalysis();
@@ -288,7 +291,8 @@ public class InsightService {
             String template = ClaudeCliService.loadPromptTemplate(templateName);
             Map<String, String> variables = Map.of("portfolio_summaries", summaries.toString());
 
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, 300);
+            int timeout = SettingsController.getAnalysisTimeout();
+            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
 
             if (cliResult.success() && cliResult.resultJson() != null) {
                 // Store with first patent's ID
