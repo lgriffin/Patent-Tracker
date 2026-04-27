@@ -1,0 +1,37 @@
+Analyze the following patent and suggest concrete directions for continuation, divisional, or continuation-in-part filings.
+
+Patent: {{patent_title}} ({{patent_number}})
+
+For each suggestion, provide specific claim language directions and assess the risk of prior art conflicts.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "continuation_directions": [
+    {
+      "direction": "Short title for this direction",
+      "description": "What this continuation would cover",
+      "rationale": "Why this is a valuable filing direction",
+      "potential_claims": ["Specific claim concepts to pursue"],
+      "risk_level": "LOW, MEDIUM, or HIGH",
+      "risk_factors": ["What could challenge this direction"]
+    }
+  ],
+  "divisional_opportunities": [
+    {
+      "direction": "Short title",
+      "description": "What separable invention this divisional would capture",
+      "key_claims": ["Core claims for the divisional"]
+    }
+  ],
+  "cip_suggestions": [
+    {
+      "direction": "Short title",
+      "new_matter": "What new matter would be added",
+      "enhancement": "How this improves on the parent patent"
+    }
+  ],
+  "overall_expansion_score": "1-10 rating of how much expansion potential exists"
+}
+
+Patent text:
+{{patent_text}}

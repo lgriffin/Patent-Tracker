@@ -1,0 +1,36 @@
+Analyze the following patent text and assess its novelty and potential prior art vulnerabilities.
+
+Patent: {{patent_title}} ({{patent_number}})
+
+Focus on identifying what makes this patent unique, what areas might be vulnerable to prior art challenges, and how strong the patent's claims are.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "novelty_assessment": "A paragraph summarizing what is novel about this patent",
+  "key_differentiators": [
+    "Specific elements that distinguish this from prior art"
+  ],
+  "potential_prior_art_areas": [
+    {
+      "area": "Technology area where prior art may exist",
+      "risk": "HIGH, MEDIUM, or LOW",
+      "description": "What type of prior art could challenge this"
+    }
+  ],
+  "claim_strength": {
+    "independent_claims": "STRONG, MODERATE, or WEAK",
+    "dependent_claims": "STRONG, MODERATE, or WEAK",
+    "overall": "STRONG, MODERATE, or WEAK"
+  },
+  "strength_score": 7,
+  "vulnerability_areas": [
+    "Specific weaknesses or areas where the patent could be challenged"
+  ],
+  "defensive_value": "Assessment of how well this patent protects against competitors",
+  "recommendations": [
+    "Suggestions for strengthening the patent position"
+  ]
+}
+
+Patent text:
+{{patent_text}}

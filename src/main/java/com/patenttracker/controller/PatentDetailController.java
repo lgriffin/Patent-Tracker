@@ -2,8 +2,11 @@ package com.patenttracker.controller;
 
 import com.patenttracker.dao.*;
 import com.patenttracker.model.*;
+import com.patenttracker.service.ClaudeCliService;
+import com.patenttracker.service.InsightService;
 import com.patenttracker.service.PdfDownloadService;
 import com.patenttracker.service.UsptoSyncService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -51,12 +54,17 @@ public class PatentDetailController {
     @FXML private TableColumn<StatusUpdate, String> histColOld;
     @FXML private TableColumn<StatusUpdate, String> histColNew;
     @FXML private TableColumn<StatusUpdate, String> histColSource;
+    @FXML private ComboBox<String> analysisTypeCombo;
+    @FXML private Button analyzeButton;
+    @FXML private Label analysisStatusLabel;
+    @FXML private Accordion analysisAccordion;
 
     private Patent patent;
     private PatentListController parentController;
     private final PatentDao patentDao = new PatentDao();
     private final StatusUpdateDao statusUpdateDao = new StatusUpdateDao();
     private final PdfDownloadService pdfDownloadService = new PdfDownloadService();
+    private final InsightService insightService = new InsightService();
 
     @FXML
     public void initialize() {
@@ -91,6 +99,11 @@ public class PatentDetailController {
         } catch (SQLException e) {
             // Leave empty — user can still type
         }
+
+        analysisTypeCombo.setItems(FXCollections.observableArrayList(
+                "Claim Decomposition", "Technology Extraction",
+                "Expansion Vectors", "Prior Art Proximity"
+        ));
     }
 
     public void setPatent(Patent patent) {
@@ -133,6 +146,7 @@ public class PatentDetailController {
         loadTags();
         loadRelatedFilings();
         loadHistory();
+        loadAnalyses();
     }
 
     @FXML
@@ -473,6 +487,115 @@ public class PatentDetailController {
             saveStatusLabel.setStyle("-fx-text-fill: red;");
             saveStatusLabel.setText("Could not open browser: " + e.getMessage());
         }
+    }
+
+    private void loadAnalyses() {
+        analysisAccordion.getPanes().clear();
+        try {
+            List<PatentAnalysis> analyses = insightService.getCachedAnalyses(patent.getId());
+            if (analyses.isEmpty()) {
+                analysisStatusLabel.setText("No analyses cached. Select a type and click Analyze.");
+                analysisStatusLabel.setStyle("-fx-text-fill: #666; -fx-font-size: 11px;");
+                analysisStatusLabel.setManaged(true);
+                analysisStatusLabel.setVisible(true);
+            } else {
+                analysisStatusLabel.setManaged(false);
+                analysisStatusLabel.setVisible(false);
+                for (PatentAnalysis analysis : analyses) {
+                    TitledPane pane = createAnalysisPane(analysis);
+                    analysisAccordion.getPanes().add(pane);
+                }
+            }
+        } catch (Exception e) {
+            analysisStatusLabel.setText("Failed to load analyses: " + e.getMessage());
+            analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            analysisStatusLabel.setManaged(true);
+            analysisStatusLabel.setVisible(true);
+        }
+    }
+
+    private TitledPane createAnalysisPane(PatentAnalysis analysis) {
+        String typeLabel = PatentAnalysis.AnalysisType.fromString(analysis.getAnalysisType()).getDisplayLabel();
+        String timestamp = analysis.getAnalyzedAt() != null
+                ? analysis.getAnalyzedAt().format(DISPLAY_DATETIME) : "unknown";
+        String title = typeLabel + "  (" + timestamp + ")";
+
+        TextArea content = new TextArea(formatJson(analysis.getResultJson()));
+        content.setEditable(false);
+        content.setWrapText(true);
+        content.setPrefRowCount(12);
+        content.setStyle("-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 12px;");
+
+        TitledPane pane = new TitledPane(title, content);
+        pane.setExpanded(false);
+        return pane;
+    }
+
+    private String formatJson(String json) {
+        try {
+            ObjectMapper om = new ObjectMapper();
+            Object obj = om.readValue(json, Object.class);
+            return om.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+        } catch (Exception e) {
+            return json;
+        }
+    }
+
+    @FXML
+    private void handleAnalyze() {
+        if (patent == null) return;
+        String selectedType = analysisTypeCombo.getValue();
+        if (selectedType == null) {
+            analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            analysisStatusLabel.setText("Select an analysis type first.");
+            analysisStatusLabel.setManaged(true);
+            analysisStatusLabel.setVisible(true);
+            return;
+        }
+
+        if (!pdfDownloadService.hasCachedPdf(patent)) {
+            analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            analysisStatusLabel.setText("PDF not cached. Download the PDF first.");
+            analysisStatusLabel.setManaged(true);
+            analysisStatusLabel.setVisible(true);
+            return;
+        }
+
+        if (!new ClaudeCliService().isAvailable()) {
+            analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            analysisStatusLabel.setText("Claude CLI not found. Configure it in Settings.");
+            analysisStatusLabel.setManaged(true);
+            analysisStatusLabel.setVisible(true);
+            return;
+        }
+
+        analyzeButton.setDisable(true);
+        analysisStatusLabel.setStyle("-fx-text-fill: #0078d4; -fx-font-size: 11px;");
+        analysisStatusLabel.setText("Running " + selectedType + " analysis... (this may take 30-120 seconds)");
+        analysisStatusLabel.setManaged(true);
+        analysisStatusLabel.setVisible(true);
+
+        new Thread(() -> {
+            InsightService.InsightResult result = switch (selectedType) {
+                case "Claim Decomposition" -> insightService.analyzeClaims(patent);
+                case "Technology Extraction" -> insightService.analyzeTechnology(patent);
+                case "Expansion Vectors" -> insightService.analyzeExpansion(patent);
+                case "Prior Art Proximity" -> insightService.analyzePriorArt(patent);
+                default -> new InsightService.InsightResult(false, selectedType, null, "Unknown type", 0);
+            };
+
+            Platform.runLater(() -> {
+                analyzeButton.setDisable(false);
+                if (result.success()) {
+                    analysisStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+                    analysisStatusLabel.setText(selectedType + " completed in " + (result.durationMs() / 1000) + "s.");
+                } else {
+                    analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+                    analysisStatusLabel.setText("Analysis failed: " + result.error());
+                }
+                loadAnalyses();
+            });
+        }).start();
     }
 
     private void openRelatedPatent(Patent related) {

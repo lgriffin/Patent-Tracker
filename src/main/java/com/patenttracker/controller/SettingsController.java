@@ -8,6 +8,8 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
 
+import javafx.application.Platform;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +17,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class SettingsController {
 
@@ -30,6 +34,8 @@ public class SettingsController {
     @FXML private Label apiKeyStatusLabel;
     @FXML private Label pdfCacheLabel;
     @FXML private Label flushStatusLabel;
+    @FXML private TextField claudeCliPathField;
+    @FXML private Label claudeCliStatusLabel;
 
     private Runnable onOwnerChanged;
 
@@ -66,6 +72,7 @@ public class SettingsController {
         Properties props = loadProperties();
         ownerNameCombo.setValue(props.getProperty("owner.name", "Leigh Griffin"));
         apiKeyField.setText(props.getProperty("uspto.api.key", DEFAULT_API_KEY));
+        claudeCliPathField.setText(props.getProperty("claude.cli.path", "claude"));
         String delay = props.getProperty("uspto.rate.delay", "1100");
         try {
             rateLimitSpinner.getValueFactory().setValue(Integer.parseInt(delay));
@@ -137,6 +144,7 @@ public class SettingsController {
         props.setProperty("owner.name", ownerName.trim());
         props.setProperty("uspto.api.key", apiKeyField.getText());
         props.setProperty("uspto.rate.delay", String.valueOf(rateLimitSpinner.getValue()));
+        props.setProperty("claude.cli.path", claudeCliPathField.getText());
         saveProperties(props);
 
         saved = true;
@@ -188,6 +196,44 @@ public class SettingsController {
     }
 
     @FXML
+    private void handleTestClaude() {
+        String path = claudeCliPathField.getText();
+        if (path == null || path.isBlank()) path = "claude";
+        claudeCliStatusLabel.setManaged(true);
+        claudeCliStatusLabel.setVisible(true);
+        claudeCliStatusLabel.setStyle("-fx-text-fill: #0078d4; -fx-font-size: 11px;");
+        claudeCliStatusLabel.setText("Testing...");
+
+        String finalPath = path;
+        new Thread(() -> {
+            try {
+                ProcessBuilder pb = new ProcessBuilder(finalPath, "--version");
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+                String output;
+                try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    output = reader.lines().collect(Collectors.joining(" "));
+                }
+                boolean ok = process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0;
+                Platform.runLater(() -> {
+                    if (ok) {
+                        claudeCliStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+                        claudeCliStatusLabel.setText("Claude CLI found: " + output.trim());
+                    } else {
+                        claudeCliStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+                        claudeCliStatusLabel.setText("Claude CLI not found or returned error.");
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    claudeCliStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+                    claudeCliStatusLabel.setText("Error: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    @FXML
     private void handleCancel() {
         Stage stage = (Stage) ownerNameCombo.getScene().getWindow();
         stage.close();
@@ -227,6 +273,10 @@ public class SettingsController {
 
     public static String getApiKey() {
         return loadProperties().getProperty("uspto.api.key", DEFAULT_API_KEY);
+    }
+
+    public static String getClaudeCliPath() {
+        return loadProperties().getProperty("claude.cli.path", "claude");
     }
 
     public static int getRateLimitDelay() {

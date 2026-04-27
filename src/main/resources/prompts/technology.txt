@@ -1,0 +1,18 @@
+Analyze the following patent text and extract the core technologies, methods, and innovations.
+
+Patent: {{patent_title}} ({{patent_number}})
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "technical_field": "The primary technical domain",
+  "problem_solved": "The core problem this patent addresses",
+  "technologies": ["List of specific technologies used or referenced"],
+  "methods": ["Key methods or processes described"],
+  "innovations": ["What is novel or non-obvious about this patent"],
+  "key_advantages": ["Claimed advantages over prior art"],
+  "applications": ["Potential real-world applications or use cases"],
+  "keywords": ["Important technical terms for categorization"]
+}
+
+Patent text:
+{{patent_text}}

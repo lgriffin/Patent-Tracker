@@ -20,6 +20,7 @@ public class MainController {
     @FXML private Tab patentsTab;
     @FXML private Tab graphTab;
     @FXML private Tab dashboardTab;
+    @FXML private Tab insightsTab;
     @FXML private Label statusLabel;
     @FXML private MenuItem importCsvMenuItem;
     @FXML private MenuItem syncAllMenuItem;
@@ -27,6 +28,7 @@ public class MainController {
     @FXML private PatentListController patentListController;
     @FXML private GraphController graphController;
     @FXML private DashboardController dashboardController;
+    @FXML private InsightsController insightsController;
 
     @FXML
     public void initialize() {
@@ -36,6 +38,8 @@ public class MainController {
                 graphController.refresh(patentListController.getCurrentFilteredPatents());
             } else if (newTab == dashboardTab && dashboardController != null) {
                 dashboardController.refresh();
+            } else if (newTab == insightsTab && insightsController != null) {
+                insightsController.refresh();
             }
         });
     }
@@ -189,6 +193,22 @@ public class MainController {
     }
 
     @FXML
+    private void handleExtractAllText() {
+        tabPane.getSelectionModel().select(insightsTab);
+        if (insightsController != null) {
+            insightsController.handleExtractAll();
+        }
+    }
+
+    @FXML
+    private void handleBatchAnalysis() {
+        tabPane.getSelectionModel().select(insightsTab);
+        if (insightsController != null) {
+            insightsController.handleAnalyzeAll();
+        }
+    }
+
+    @FXML
     private void handleManageClassifications() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/classifications.fxml"));
@@ -232,7 +252,7 @@ public class MainController {
             Stage stage = new Stage();
             stage.setTitle("Settings");
             stage.initModality(Modality.APPLICATION_MODAL);
-            Scene scene = new Scene(root, 520, 520);
+            Scene scene = new Scene(root, 520, 640);
             scene.getStylesheets().add(getClass().getResource("/css/app.css").toExternalForm());
             stage.setScene(scene);
             stage.showAndWait();

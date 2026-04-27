@@ -18,6 +18,9 @@
                 <SeparatorMenuItem/>
                 <MenuItem text="Auto-Tag Patents (AI)..." onAction="#handleAutoTag"/>
                 <SeparatorMenuItem/>
+                <MenuItem text="Extract All Patent Text..." onAction="#handleExtractAllText"/>
+                <MenuItem text="Run Batch Analysis..." onAction="#handleBatchAnalysis"/>
+                <SeparatorMenuItem/>
                 <MenuItem text="Manage Classifications..." onAction="#handleManageClassifications"/>
             </Menu>
             <Menu text="Settings">
@@ -36,6 +39,9 @@
             </Tab>
             <Tab text="Dashboard" fx:id="dashboardTab">
                 <fx:include source="dashboard.fxml" fx:id="dashboard"/>
+            </Tab>
+            <Tab text="Insights" fx:id="insightsTab">
+                <fx:include source="insights.fxml" fx:id="insights"/>
             </Tab>
         </TabPane>
     </center>

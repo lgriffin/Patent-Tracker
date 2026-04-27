@@ -87,6 +87,18 @@
 
         <Separator fx:id="relatedSeparator" managed="false" visible="false"/>
 
+        <!-- AI Analysis -->
+        <Label text="AI Analysis" styleClass="detail-label" style="-fx-font-size: 14px;"/>
+        <HBox spacing="8" alignment="CENTER_LEFT">
+            <ComboBox fx:id="analysisTypeCombo" promptText="Select analysis type..." prefWidth="220"/>
+            <Button fx:id="analyzeButton" text="Analyze" onAction="#handleAnalyze" styleClass="primary-button"/>
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+        <Label fx:id="analysisStatusLabel" text="" style="-fx-font-size: 11px;" managed="false" visible="false"/>
+        <Accordion fx:id="analysisAccordion"/>
+
+        <Separator/>
+
         <!-- Change History -->
         <Label text="Change History" styleClass="detail-label" style="-fx-font-size: 14px;"/>
         <TableView fx:id="historyTable" prefHeight="150">
