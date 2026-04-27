@@ -253,3 +253,17 @@
 .pdf-failed {
     -fx-text-fill: #dc3545;
 }
+
+/* Insights Tab */
+.analysis-result {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12px;
+}
+
+.analysis-badge {
+    -fx-background-color: #7c3aed;
+    -fx-text-fill: white;
+    -fx-padding: 2 8;
+    -fx-background-radius: 10;
+    -fx-font-size: 10px;
+}

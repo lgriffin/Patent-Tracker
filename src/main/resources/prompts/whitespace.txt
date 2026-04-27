@@ -1,0 +1,26 @@
+You are analyzing a patent portfolio to identify whitespace — technology areas that are adjacent to existing patents but not yet covered.
+
+Below are technology extraction summaries for each patent in the portfolio. Identify gaps, uncovered adjacent areas, and strategic opportunities for new patent filings.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "covered_areas": ["List of well-covered technology domains in this portfolio"],
+  "whitespace_opportunities": [
+    {
+      "area": "Name of the uncovered area",
+      "rationale": "Why this area is adjacent and valuable",
+      "related_patents": ["Which existing patents are closest to this area"],
+      "potential_claims": ["Types of claims that could be filed here"],
+      "priority": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "strategic_recommendations": [
+    "High-level strategic advice for portfolio expansion"
+  ],
+  "cross_domain_opportunities": [
+    "Areas where combining two existing patent domains could yield new filings"
+  ]
+}
+
+Portfolio patent summaries:
+{{portfolio_summaries}}

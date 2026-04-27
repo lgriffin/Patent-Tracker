@@ -1,0 +1,42 @@
+You are analyzing a patent portfolio to build an adjacency map — scoring uncovered technology areas by how reachable they are from existing patent claims and technologies.
+
+For each identified adjacent area, assess how many existing patents provide a stepping stone, how much new research would be needed, and the strategic value of filing there.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "existing_anchors": [
+    {
+      "domain": "Well-established technology domain in the portfolio",
+      "patent_count": 0,
+      "key_patents": ["Most representative patent titles"]
+    }
+  ],
+  "adjacency_map": [
+    {
+      "target_area": "Name of the adjacent uncovered area",
+      "reachability_score": 1-10,
+      "stepping_stone_patents": ["Existing patents that provide a bridge to this area"],
+      "research_gap": "What additional work or invention is needed to reach this area",
+      "estimated_effort": "LOW, MEDIUM, or HIGH",
+      "strategic_value": "LOW, MEDIUM, or HIGH",
+      "suggested_approach": "How to get from existing patents to this new area"
+    }
+  ],
+  "low_hanging_fruit": [
+    {
+      "area": "Closest uncovered area requiring minimal new invention",
+      "why_easy": "Why this is readily reachable",
+      "from_patents": ["Which patents to build on"]
+    }
+  ],
+  "frontier_areas": [
+    {
+      "area": "High-value but harder-to-reach area",
+      "why_valuable": "Strategic importance",
+      "barriers": ["What makes this harder to reach"]
+    }
+  ]
+}
+
+Portfolio patent summaries:
+{{portfolio_summaries}}

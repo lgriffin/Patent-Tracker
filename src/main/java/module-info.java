@@ -9,6 +9,7 @@ module com.patenttracker {
     requires com.opencsv;
     requires com.fasterxml.jackson.databind;
     requires org.xerial.sqlitejdbc;
+    requires org.apache.pdfbox;
 
     opens com.patenttracker to javafx.fxml;
     opens com.patenttracker.controller to javafx.fxml;

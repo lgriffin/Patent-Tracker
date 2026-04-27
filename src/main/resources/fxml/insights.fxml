@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.patenttracker.controller.InsightsController"
+            fitToWidth="true">
+    <VBox spacing="15">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Patent Insights" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="exportButton" text="Export Markdown"
+                    onAction="#handleExportMarkdown" styleClass="secondary-button"/>
+        </HBox>
+
+        <!-- Summary Cards -->
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="patentsWithTextLabel" text="0" styleClass="stat-value"/>
+                <Label text="Patents with Text" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="patentsAnalyzedLabel" text="0" styleClass="stat-value"
+                       style="-fx-text-fill: #28a745;"/>
+                <Label text="Patents Analyzed" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="totalAnalysesLabel" text="0" styleClass="stat-value"
+                       style="-fx-text-fill: #0078d4;"/>
+                <Label text="Total Analyses" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Batch Actions -->
+        <Label text="Batch Operations" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="extractAllButton" text="Extract All Text"
+                    onAction="#handleExtractAll" styleClass="primary-button"/>
+            <Button fx:id="analyzeAllButton" text="Run Technology Extraction"
+                    onAction="#handleAnalyzeAll" styleClass="primary-button"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
+                    styleClass="secondary-button" managed="false" visible="false"/>
+        </HBox>
+
+        <!-- Progress -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <ProgressBar fx:id="progressBar" prefWidth="400" progress="0"/>
+            <Label fx:id="progressLabel" text="Ready"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Portfolio Analysis -->
+        <Label text="Portfolio Analysis" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="whitespaceButton" text="Whitespace Finder"
+                    onAction="#handleWhitespace" styleClass="primary-button"/>
+            <Button fx:id="clusteringButton" text="Clustering"
+                    onAction="#handleClustering" styleClass="primary-button"/>
+            <Button fx:id="adjacencyButton" text="Adjacency Map"
+                    onAction="#handleAdjacency" styleClass="primary-button"/>
+            <Button fx:id="temporalButton" text="Temporal Trends"
+                    onAction="#handleTemporal" styleClass="primary-button"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="collisionButton" text="Claim Collision"
+                    onAction="#handleCollision" styleClass="primary-button"/>
+            <Button fx:id="competitorButton" text="Competitor Gaps"
+                    onAction="#handleCompetitor" styleClass="primary-button"/>
+            <Button fx:id="inventionButton" text="Invention Prompts"
+                    onAction="#handleInvention" styleClass="primary-button"/>
+            <Button fx:id="crossDomainButton" text="Cross-Domain"
+                    onAction="#handleCrossDomain" styleClass="primary-button"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Analysis Type Breakdown -->
+        <Label text="Analysis Breakdown" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="claimsCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Claims" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="technologyCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Technology" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="expansionCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Expansion" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="priorArtCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Prior Art" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="whitespaceCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Whitespace" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="clusteringCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Clustering" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="adjacencyCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Adjacency" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="temporalCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Temporal" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="collisionCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Collision" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="competitorCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Competitor" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="inventionCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Invention" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="crossDomainCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;"/>
+                <Label text="Cross-Domain" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Results Display -->
+        <Label text="Cross-Patent Results" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <VBox fx:id="resultsBox" spacing="8">
+            <Accordion fx:id="resultsAccordion"/>
+        </VBox>
+    </VBox>
+</ScrollPane>

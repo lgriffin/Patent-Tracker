@@ -1,0 +1,45 @@
+You are a patent strategist generating concrete invention disclosure prompts. Using the portfolio analysis data below, generate actionable invention ideas that a team of engineers could pursue as new patent filings.
+
+Each invention prompt should be specific enough to start drafting a disclosure, not just a vague direction.
+
+The portfolio data includes technology summaries and may include whitespace analysis and clustering results.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "invention_prompts": [
+    {
+      "title": "Concise invention title (suitable for a disclosure form)",
+      "problem_statement": "The specific technical problem this invention solves",
+      "proposed_solution": "High-level description of the inventive approach",
+      "key_claims": ["2-3 potential independent claim concepts"],
+      "builds_on": ["Existing portfolio patents this builds upon"],
+      "technical_domain": "Primary technology area",
+      "novelty_basis": "Why this would be novel over the existing portfolio",
+      "feasibility": "HIGH, MEDIUM, or LOW",
+      "strategic_value": "HIGH, MEDIUM, or LOW",
+      "category": "WHITESPACE, ADJACENCY, CROSS_DOMAIN, IMPROVEMENT, or DEFENSIVE"
+    }
+  ],
+  "quick_wins": [
+    {
+      "title": "Invention that could be disclosed quickly",
+      "why_quick": "Why this requires minimal additional research",
+      "parent_patent": "Existing patent to build on"
+    }
+  ],
+  "moonshots": [
+    {
+      "title": "Ambitious invention with high potential",
+      "vision": "What this could enable if successful",
+      "challenges": ["Key technical challenges to overcome"]
+    }
+  ],
+  "portfolio_gaps_addressed": [
+    "Which identified gaps these invention prompts collectively address"
+  ]
+}
+
+Portfolio data:
+{{portfolio_summaries}}
+
+{{additional_context}}

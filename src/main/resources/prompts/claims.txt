@@ -1,0 +1,29 @@
+Analyze the following patent text and decompose its claims into a structured hierarchy.
+
+Patent: {{patent_title}} ({{patent_number}})
+
+For each independent claim, identify:
+- Claim number
+- A one-sentence summary
+- Key limitations/elements
+- All dependent claims that reference it, with their additional limitations
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "independent_claims": [
+    {
+      "claim_number": 1,
+      "summary": "...",
+      "key_elements": ["..."],
+      "dependent_claims": [
+        {"claim_number": 2, "additional_limitations": "..."}
+      ]
+    }
+  ],
+  "total_independent": 0,
+  "total_dependent": 0,
+  "broadest_claim_summary": "A one-sentence summary of the broadest independent claim"
+}
+
+Patent text:
+{{patent_text}}

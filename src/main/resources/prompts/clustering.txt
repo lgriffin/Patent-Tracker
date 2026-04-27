@@ -1,0 +1,40 @@
+Analyze the following patent portfolio and identify thematic clusters — groups of patents that share common technology areas, methods, or applications.
+
+Also identify gaps between clusters and areas where clusters could be strengthened.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "clusters": [
+    {
+      "theme": "Name of the thematic cluster",
+      "description": "What unifies these patents",
+      "patents": ["List of patent titles in this cluster"],
+      "strength": "STRONG, MODERATE, or WEAK based on coverage depth",
+      "key_technologies": ["Core technologies in this cluster"]
+    }
+  ],
+  "gaps_between_clusters": [
+    {
+      "gap": "Description of the gap",
+      "between": ["Cluster A", "Cluster B"],
+      "opportunity": "What could be filed to bridge this gap"
+    }
+  ],
+  "overlap_areas": [
+    {
+      "area": "Technology area with overlap",
+      "overlapping_patents": ["Patent titles that overlap"],
+      "assessment": "Whether overlap is strategic reinforcement or redundancy"
+    }
+  ],
+  "portfolio_health": {
+    "total_clusters": 0,
+    "strongest_area": "Name of strongest cluster",
+    "weakest_area": "Name of weakest cluster",
+    "diversity_score": "1-10 rating of portfolio diversity",
+    "depth_score": "1-10 rating of coverage depth"
+  }
+}
+
+Portfolio patent summaries:
+{{portfolio_summaries}}

@@ -1,0 +1,42 @@
+You are analyzing a patent portfolio to detect claim collisions — cases where independent claims across different patents in the same portfolio overlap significantly, which may indicate redundancy or could create continuation/divisional opportunities.
+
+Examine the technology summaries to find patents whose core claims cover substantially similar ground.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "collisions": [
+    {
+      "patent_group": ["Patent titles that have overlapping claims"],
+      "overlap_area": "The specific technology area where claims overlap",
+      "overlap_severity": "HIGH, MEDIUM, or LOW",
+      "overlap_type": "REDUNDANT, COMPLEMENTARY, or CONTINUATION_OPPORTUNITY",
+      "details": "Specific description of what overlaps and how",
+      "recommendation": "What to do about this overlap"
+    }
+  ],
+  "near_misses": [
+    {
+      "patent_a": "First patent title",
+      "patent_b": "Second patent title",
+      "shared_elements": ["Technology elements they share"],
+      "differentiator": "What keeps them from fully colliding",
+      "risk_level": "LOW or MEDIUM"
+    }
+  ],
+  "continuation_opportunities": [
+    {
+      "parent_patents": ["Patent titles that could serve as parent applications"],
+      "continuation_area": "What a continuation or divisional could claim",
+      "rationale": "Why this is a good continuation opportunity",
+      "priority": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "portfolio_coherence": {
+    "redundancy_score": "1-10 (10 = no redundancy)",
+    "strategic_overlap_score": "1-10 (10 = all overlaps are strategic)",
+    "overall_assessment": "Summary of portfolio claim coherence"
+  }
+}
+
+Portfolio patent summaries:
+{{portfolio_summaries}}
