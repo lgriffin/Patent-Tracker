@@ -1,0 +1,46 @@
+You are synthesizing multiple partial adjacency map analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+Your task:
+1. Merge "existing_anchors" — combine patent counts for the same domain, deduplicate key_patents
+2. Merge "adjacency_map" entries — same target_area entries should be merged with averaged scores and combined stepping_stone_patents
+3. Consolidate "low_hanging_fruit" — deduplicate and keep the most compelling entries
+4. Consolidate "frontier_areas" — deduplicate and merge barrier lists
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "existing_anchors": [
+    {
+      "domain": "Well-established technology domain in the portfolio",
+      "patent_count": 0,
+      "key_patents": ["Most representative patent titles"]
+    }
+  ],
+  "adjacency_map": [
+    {
+      "target_area": "Name of the adjacent uncovered area",
+      "reachability_score": 0,
+      "stepping_stone_patents": ["Existing patents that provide a bridge to this area"],
+      "research_gap": "What additional work or invention is needed to reach this area",
+      "estimated_effort": "LOW, MEDIUM, or HIGH",
+      "strategic_value": "LOW, MEDIUM, or HIGH",
+      "suggested_approach": "How to get from existing patents to this new area"
+    }
+  ],
+  "low_hanging_fruit": [
+    {
+      "area": "Closest uncovered area requiring minimal new invention",
+      "why_easy": "Why this is readily reachable",
+      "from_patents": ["Which patents to build on"]
+    }
+  ],
+  "frontier_areas": [
+    {
+      "area": "High-value but harder-to-reach area",
+      "why_valuable": "Strategic importance",
+      "barriers": ["What makes this harder to reach"]
+    }
+  ]
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

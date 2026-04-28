@@ -1,17 +1,19 @@
-You are a patent strategist generating concrete invention disclosure prompts. Using the portfolio analysis data below, generate actionable invention ideas that a team of engineers could pursue as new patent filings.
+You are synthesizing multiple partial invention prompt analyses of a patent portfolio into a single coherent result. Each partial analysis generated invention ideas from a different subset of the portfolio.
 
-Each invention prompt should be specific enough to start drafting a disclosure, not just a vague direction.
+Your task:
+1. Merge "invention_prompts" — deduplicate by title similarity, keep the best version of each unique idea, ensure source_patents references use exact US patent numbers
+2. Consolidate "quick_wins" — deduplicate and keep the most actionable entries
+3. Consolidate "moonshots" — deduplicate and keep the most impactful entries
+4. Merge "portfolio_gaps_addressed" into a unified list
 
-The portfolio data includes technology summaries and may include whitespace analysis and clustering results. Each patent summary includes its US patent or application number in parentheses — use these exact numbers when referencing source patents.
-
-Return your response as JSON only (no markdown fences, no extra text) with this structure:
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
 {
   "invention_prompts": [
     {
       "title": "Concise invention title (suitable for a disclosure form)",
       "problem_statement": "A clear 1-2 sentence statement of the specific technical problem this invention solves",
       "description": "A 3-4 line description of the proposed inventive approach, covering what the invention does, how it works at a high level, and what makes it novel compared to the source patents",
-      "source_patents": ["US patent numbers (e.g. US11234567B2 or US20210012345A1) from the portfolio that this idea builds upon or extends"],
+      "source_patents": ["US patent numbers (e.g. US11234567B2) from the portfolio that this idea builds upon"],
       "technical_domain": "Primary technology area",
       "feasibility": "HIGH, MEDIUM, or LOW",
       "strategic_value": "HIGH, MEDIUM, or LOW",
@@ -41,7 +43,5 @@ Return your response as JSON only (no markdown fences, no extra text) with this 
   ]
 }
 
-Portfolio data:
-{{portfolio_summaries}}
-
-{{additional_context}}
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

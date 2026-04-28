@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class ClaudeCliService {
@@ -201,6 +203,165 @@ public class ClaudeCliService {
                 return template;
             }
         }
+    }
+
+    public AnalysisResult analyzeStreaming(String promptTemplate, Map<String, String> variables,
+                                           int idleTimeoutSeconds, StreamingCallback callback) {
+        long startTime = System.currentTimeMillis();
+
+        String prompt = promptTemplate;
+        for (var entry : variables.entrySet()) {
+            prompt = prompt.replace("{{" + entry.getKey() + "}}", entry.getValue());
+        }
+
+        String cliPath = getCliPath();
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder(cliPath, "--print", "--verbose", "--output-format", "stream-json");
+            pb.redirectErrorStream(false);
+
+            Process process = pb.start();
+
+            String finalPrompt = prompt;
+            CompletableFuture.runAsync(() -> {
+                try (OutputStreamWriter writer = new OutputStreamWriter(
+                        process.getOutputStream(), StandardCharsets.UTF_8)) {
+                    writer.write(finalPrompt);
+                    writer.flush();
+                } catch (IOException ignored) {}
+            });
+
+            StringBuilder accumulated = new StringBuilder();
+            AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
+            AtomicBoolean timedOut = new AtomicBoolean(false);
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+            String[] modelUsed = {null};
+
+            CompletableFuture<String> stderrFuture = CompletableFuture.supplyAsync(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                    return reader.lines().collect(Collectors.joining("\n"));
+                } catch (IOException e) { return ""; }
+            });
+
+            Thread watchdog = new Thread(() -> {
+                while (process.isAlive()) {
+                    if (callback != null && callback.isCancelled()) {
+                        cancelled.set(true);
+                        process.destroyForcibly();
+                        return;
+                    }
+                    long idle = System.currentTimeMillis() - lastActivity.get();
+                    if (idle > idleTimeoutSeconds * 1000L) {
+                        timedOut.set(true);
+                        process.destroyForcibly();
+                        return;
+                    }
+                    try { Thread.sleep(5000); } catch (InterruptedException e) { return; }
+                }
+            });
+            watchdog.setDaemon(true);
+            watchdog.start();
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lastActivity.set(System.currentTimeMillis());
+                    if (line.isBlank()) continue;
+
+                    try {
+                        JsonNode event = mapper.readTree(line);
+                        String type = event.has("type") ? event.get("type").asText() : "";
+
+                        switch (type) {
+                            case "system" -> {
+                                String subtype = event.has("subtype") ? event.get("subtype").asText() : "";
+                                if ("init".equals(subtype) && callback != null) {
+                                    callback.onStreamStart();
+                                } else if ("api_retry".equals(subtype) && callback != null) {
+                                    int attempt = event.has("attempt") ? event.get("attempt").asInt() : 0;
+                                    int maxRetries = event.has("max_retries") ? event.get("max_retries").asInt() : 0;
+                                    String error = event.has("error") ? event.get("error").asText() : "retry";
+                                    long delayMs = event.has("retry_delay_ms") ? event.get("retry_delay_ms").asLong() : 0;
+                                    String msg = "API retry " + attempt + "/" + maxRetries
+                                            + " (" + error + ")"
+                                            + (delayMs > 0 ? " — waiting " + (delayMs / 1000) + "s" : "");
+                                    callback.onRetry(msg);
+                                }
+                            }
+                            case "assistant" -> {
+                                JsonNode content = event.path("message").path("content");
+                                if (content.isArray()) {
+                                    for (JsonNode item : content) {
+                                        if ("text".equals(item.path("type").asText())) {
+                                            String text = item.path("text").asText();
+                                            accumulated.append(text);
+                                            if (callback != null) callback.onTextDelta(text);
+                                        }
+                                    }
+                                }
+                                String msgModel = event.path("message").path("model").asText(null);
+                                if (msgModel != null) modelUsed[0] = msgModel;
+                            }
+                            case "result" -> {
+                                if (modelUsed[0] == null) {
+                                    String resultModel = event.path("model").asText(null);
+                                    if (resultModel != null) modelUsed[0] = resultModel;
+                                }
+                                if (accumulated.isEmpty()) {
+                                    String resultText = event.path("result").asText(null);
+                                    if (resultText != null) accumulated.append(resultText);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            process.waitFor();
+            watchdog.interrupt();
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            if (cancelled.get()) {
+                return new AnalysisResult(false, null, "Analysis cancelled.", null, duration);
+            }
+
+            if (timedOut.get()) {
+                return new AnalysisResult(false, null,
+                        "Claude CLI idle timeout: no output received for " + idleTimeoutSeconds
+                                + " seconds. The model may be stuck or the prompt may be too large.",
+                        null, duration);
+            }
+
+            String stderr = stderrFuture.get(5, TimeUnit.SECONDS);
+
+            if (process.exitValue() != 0) {
+                String errorMsg = stderr.isBlank() ? "Claude CLI exited with code " + process.exitValue() : stderr;
+                return new AnalysisResult(false, null, errorMsg, null, duration);
+            }
+
+            String fullText = accumulated.toString();
+            if (callback != null) callback.onComplete(fullText);
+
+            String resultJson = extractJsonFromText(fullText);
+            return new AnalysisResult(true, resultJson, null, modelUsed[0], duration);
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return new AnalysisResult(false, null, "Failed to run Claude CLI: " + msg, null, duration);
+        }
+    }
+
+    public interface StreamingCallback {
+        default void onStreamStart() {}
+        default void onTextDelta(String text) {}
+        default void onRetry(String message) {}
+        default void onComplete(String fullText) {}
+        default void onError(String error) {}
+        default boolean isCancelled() { return false; }
     }
 
     public record AnalysisResult(

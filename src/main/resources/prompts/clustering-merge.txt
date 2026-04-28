@@ -1,0 +1,44 @@
+You are synthesizing multiple partial clustering analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+Your task:
+1. Reconcile clusters that appear in multiple chunks — same or similar themes should be merged into a single cluster with combined patent lists
+2. Recompute "gaps_between_clusters" across the unified cluster set
+3. Identify "overlap_areas" from the combined view
+4. Recompute "portfolio_health" scores across all clusters
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "clusters": [
+    {
+      "theme": "Name of the thematic cluster",
+      "description": "What unifies these patents",
+      "patents": ["List of patent titles in this cluster"],
+      "strength": "STRONG, MODERATE, or WEAK based on coverage depth",
+      "key_technologies": ["Core technologies in this cluster"]
+    }
+  ],
+  "gaps_between_clusters": [
+    {
+      "gap": "Description of the gap",
+      "between": ["Cluster A", "Cluster B"],
+      "opportunity": "What could be filed to bridge this gap"
+    }
+  ],
+  "overlap_areas": [
+    {
+      "area": "Technology area with overlap",
+      "overlapping_patents": ["Patent titles that overlap"],
+      "assessment": "Whether overlap is strategic reinforcement or redundancy"
+    }
+  ],
+  "portfolio_health": {
+    "total_clusters": 0,
+    "strongest_area": "Name of strongest cluster",
+    "weakest_area": "Name of weakest cluster",
+    "diversity_score": "1-10 rating of portfolio diversity",
+    "depth_score": "1-10 rating of coverage depth"
+  }
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

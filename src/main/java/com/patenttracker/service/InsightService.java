@@ -18,9 +18,12 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class InsightService {
 
@@ -37,6 +40,15 @@ public class InsightService {
         this.pdfExtractorService = new PdfExtractorService();
         this.claudeCliService = new ClaudeCliService();
     }
+
+    public interface CrossPatentProgressCallback {
+        void onChunkProgress(int currentChunk, int totalChunks);
+        void onMergeProgress();
+        void onStreamingStatus(String status);
+        boolean isCancelled();
+    }
+
+    private record PatentTechPair(Patent patent, String techJson) {}
 
     public InsightResult analyzeClaims(Patent patent) {
         return runSinglePatentAnalysis(patent, "CLAIMS", "claims");
@@ -96,219 +108,263 @@ public class InsightService {
     }
 
     public InsightResult analyzeWhitespace(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "WHITESPACE", "whitespace");
+        return analyzeWhitespace(patents, null);
+    }
+
+    public InsightResult analyzeWhitespace(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "WHITESPACE", "whitespace", callback);
     }
 
     public InsightResult analyzeClustering(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "CLUSTERING", "clustering");
+        return analyzeClustering(patents, null);
+    }
+
+    public InsightResult analyzeClustering(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "CLUSTERING", "clustering", callback);
     }
 
     public InsightResult analyzeAdjacency(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "ADJACENCY", "adjacency");
+        return analyzeAdjacency(patents, null);
+    }
+
+    public InsightResult analyzeAdjacency(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "ADJACENCY", "adjacency", callback);
     }
 
     public InsightResult analyzeClaimCollision(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "CLAIM_COLLISION", "claim-collision");
+        return analyzeClaimCollision(patents, null);
+    }
+
+    public InsightResult analyzeClaimCollision(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "CLAIM_COLLISION", "claim-collision", callback);
     }
 
     public InsightResult analyzeCompetitorGaps(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "COMPETITOR_GAPS", "competitor-gaps");
+        return analyzeCompetitorGaps(patents, null);
+    }
+
+    public InsightResult analyzeCompetitorGaps(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "COMPETITOR_GAPS", "competitor-gaps", callback);
     }
 
     public InsightResult analyzeCrossDomain(List<Patent> patents) {
-        return runCrossPatentAnalysis(patents, "CROSS_DOMAIN", "cross-domain");
+        return analyzeCrossDomain(patents, null);
+    }
+
+    public InsightResult analyzeCrossDomain(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return runCrossPatentAnalysis(patents, "CROSS_DOMAIN", "cross-domain", callback);
     }
 
     public InsightResult analyzeTemporalTrends(List<Patent> patents) {
-        return runCrossPatentAnalysisWithDates(patents, "TEMPORAL_TRENDS", "temporal-trends");
+        return analyzeTemporalTrends(patents, null);
     }
 
-    public InsightResult analyzeInventionPrompts(List<Patent> patents) {
-        return runCrossPatentAnalysisEnriched(patents);
-    }
-
-    private InsightResult runCrossPatentAnalysisWithDates(List<Patent> patents, String analysisType, String templateName) {
-        StringBuilder summaries = new StringBuilder();
-        int included = 0;
-
-        for (Patent patent : patents) {
-            try {
-                PatentAnalysis techAnalysis = patentAnalysisDao.findByPatentIdAndType(
-                        patent.getId(), "TECHNOLOGY");
-                if (techAnalysis == null) continue;
-
-                LocalDate filed = patent.getFilingDate();
-                summaries.append("Patent: ").append(patent.getTitle())
-                        .append(" (").append(patent.getPatentNumber() != null ?
-                                patent.getPatentNumber() : patent.getApplicationNumber())
+    public InsightResult analyzeTemporalTrends(List<Patent> patents, CrossPatentProgressCallback callback) {
+        Function<List<PatentTechPair>, String> summaryBuilder = pairs -> {
+            StringBuilder sb = new StringBuilder();
+            for (PatentTechPair pair : pairs) {
+                Patent p = pair.patent();
+                LocalDate filed = p.getFilingDate();
+                sb.append("Patent: ").append(p.getTitle())
+                        .append(" (").append(p.getPatentNumber() != null ?
+                                p.getPatentNumber() : p.getApplicationNumber())
                         .append(")")
                         .append(" | Filed: ").append(filed != null ? filed.format(DateTimeFormatter.ISO_LOCAL_DATE) : "unknown")
                         .append("\n")
-                        .append(techAnalysis.getResultJson())
+                        .append(pair.techJson())
                         .append("\n---\n");
-                included++;
-            } catch (SQLException e) {
-                // Skip
             }
-        }
+            return sb.toString();
+        };
 
-        if (included < 2) {
-            return new InsightResult(false, analysisType, null,
-                    "Need at least 2 patents with technology extraction. Found: " + included, 0);
-        }
+        List<PatentTechPair> pairs = buildPatentTechPairs(patents, false);
+        pairs.sort(Comparator.comparing(p -> p.patent().getFilingDate() != null
+                ? p.patent().getFilingDate() : LocalDate.MAX));
 
-        try {
-            String template = ClaudeCliService.loadPromptTemplate(templateName);
-            Map<String, String> variables = Map.of("portfolio_summaries", summaries.toString());
-
-            int timeout = SettingsController.getAnalysisTimeout();
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
-
-            if (cliResult.success() && cliResult.resultJson() != null) {
-                PatentAnalysis pa = new PatentAnalysis();
-                pa.setPatentId(patents.get(0).getId());
-                pa.setAnalysisType(analysisType);
-                pa.setResultJson(cliResult.resultJson());
-                pa.setModelUsed(cliResult.modelUsed());
-                patentAnalysisDao.insertOrUpdate(pa);
-                return new InsightResult(true, analysisType, cliResult.resultJson(), null, cliResult.durationMs());
-            } else {
-                return new InsightResult(false, analysisType, null, cliResult.error(), cliResult.durationMs());
-            }
-        } catch (IOException e) {
-            return new InsightResult(false, analysisType, null, "Failed to load prompt template: " + e.getMessage(), 0);
-        } catch (SQLException e) {
-            return new InsightResult(false, analysisType, null, "Database error: " + e.getMessage(), 0);
-        }
+        return runChunkedOrDirect(pairs, patents, "TEMPORAL_TRENDS", "temporal-trends",
+                summaryBuilder, Map.of(), callback);
     }
 
-    private InsightResult runCrossPatentAnalysisEnriched(List<Patent> patents) {
-        StringBuilder summaries = new StringBuilder();
-        int included = 0;
+    public InsightResult analyzeInventionPrompts(List<Patent> patents) {
+        return analyzeInventionPrompts(patents, null);
+    }
 
-        for (Patent patent : patents) {
-            try {
-                PatentAnalysis techAnalysis = patentAnalysisDao.findByPatentIdAndType(
-                        patent.getId(), "TECHNOLOGY");
-                if (techAnalysis == null) continue;
-
-                summaries.append("Patent: ").append(patent.getTitle())
-                        .append(" (").append(patent.getPatentNumber() != null ?
-                                patent.getPatentNumber() : patent.getApplicationNumber())
-                        .append(")\n")
-                        .append(techAnalysis.getResultJson())
-                        .append("\n---\n");
-                included++;
-            } catch (SQLException e) {
-                // Skip
-            }
-        }
-
-        if (included < 2) {
-            return new InsightResult(false, "INVENTION_PROMPTS", null,
-                    "Need at least 2 patents with technology extraction. Found: " + included, 0);
-        }
+    public InsightResult analyzeInventionPrompts(List<Patent> patents, CrossPatentProgressCallback callback) {
+        List<PatentTechPair> pairs = buildPatentTechPairs(patents, false);
 
         StringBuilder additionalContext = new StringBuilder();
         try {
-            PatentAnalysis whitespace = patentAnalysisDao.findByPatentIdAndType(
-                    patents.get(0).getId(), "WHITESPACE");
-            if (whitespace != null) {
-                additionalContext.append("\nWhitespace Analysis Results:\n")
-                        .append(whitespace.getResultJson()).append("\n");
-            }
-
-            PatentAnalysis clustering = patentAnalysisDao.findByPatentIdAndType(
-                    patents.get(0).getId(), "CLUSTERING");
-            if (clustering != null) {
-                additionalContext.append("\nClustering Analysis Results:\n")
-                        .append(clustering.getResultJson()).append("\n");
+            if (!patents.isEmpty()) {
+                PatentAnalysis whitespace = patentAnalysisDao.findByPatentIdAndType(
+                        patents.get(0).getId(), "WHITESPACE");
+                if (whitespace != null) {
+                    additionalContext.append("\nWhitespace Analysis Results:\n")
+                            .append(whitespace.getResultJson()).append("\n");
+                }
+                PatentAnalysis clustering = patentAnalysisDao.findByPatentIdAndType(
+                        patents.get(0).getId(), "CLUSTERING");
+                if (clustering != null) {
+                    additionalContext.append("\nClustering Analysis Results:\n")
+                            .append(clustering.getResultJson()).append("\n");
+                }
             }
         } catch (SQLException ignored) {}
 
-        try {
-            String template = ClaudeCliService.loadPromptTemplate("invention-prompts");
-            Map<String, String> variables = Map.of(
-                    "portfolio_summaries", summaries.toString(),
-                    "additional_context", additionalContext.toString()
-            );
+        Function<List<PatentTechPair>, String> summaryBuilder = buildPlainSummary();
+        Map<String, String> extraVars = Map.of("additional_context", additionalContext.toString());
 
-            int timeout = SettingsController.getAnalysisTimeout();
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
-
-            if (cliResult.success() && cliResult.resultJson() != null) {
-                PatentAnalysis pa = new PatentAnalysis();
-                pa.setPatentId(patents.get(0).getId());
-                pa.setAnalysisType("INVENTION_PROMPTS");
-                pa.setResultJson(cliResult.resultJson());
-                pa.setModelUsed(cliResult.modelUsed());
-                patentAnalysisDao.insertOrUpdate(pa);
-                return new InsightResult(true, "INVENTION_PROMPTS", cliResult.resultJson(), null, cliResult.durationMs());
-            } else {
-                return new InsightResult(false, "INVENTION_PROMPTS", null, cliResult.error(), cliResult.durationMs());
-            }
-        } catch (IOException e) {
-            return new InsightResult(false, "INVENTION_PROMPTS", null, "Failed to load prompt template: " + e.getMessage(), 0);
-        } catch (SQLException e) {
-            return new InsightResult(false, "INVENTION_PROMPTS", null, "Database error: " + e.getMessage(), 0);
-        }
+        return runChunkedOrDirect(pairs, patents, "INVENTION_PROMPTS", "invention-prompts",
+                summaryBuilder, extraVars, callback);
     }
 
-    private InsightResult runCrossPatentAnalysis(List<Patent> patents, String analysisType, String templateName) {
-        StringBuilder summaries = new StringBuilder();
-        int included = 0;
+    private Function<List<PatentTechPair>, String> buildPlainSummary() {
+        return pairs -> {
+            StringBuilder sb = new StringBuilder();
+            for (PatentTechPair pair : pairs) {
+                Patent p = pair.patent();
+                sb.append("Patent: ").append(p.getTitle())
+                        .append(" (").append(p.getPatentNumber() != null ?
+                                p.getPatentNumber() : p.getApplicationNumber())
+                        .append(")\n")
+                        .append(pair.techJson())
+                        .append("\n---\n");
+            }
+            return sb.toString();
+        };
+    }
 
+    private List<PatentTechPair> buildPatentTechPairs(List<Patent> patents, boolean autoAnalyze) {
+        List<PatentTechPair> pairs = new ArrayList<>();
         for (Patent patent : patents) {
             try {
                 PatentAnalysis techAnalysis = patentAnalysisDao.findByPatentIdAndType(
                         patent.getId(), "TECHNOLOGY");
-
-                if (techAnalysis == null) {
+                if (techAnalysis == null && autoAnalyze) {
                     InsightResult techResult = analyzeTechnology(patent);
-                    if (!techResult.success()) continue;
-                    techAnalysis = patentAnalysisDao.findByPatentIdAndType(patent.getId(), "TECHNOLOGY");
-                    if (techAnalysis == null) continue;
+                    if (techResult.success()) {
+                        techAnalysis = patentAnalysisDao.findByPatentIdAndType(patent.getId(), "TECHNOLOGY");
+                    }
                 }
-
-                summaries.append("Patent: ").append(patent.getTitle())
-                        .append(" (").append(patent.getPatentNumber() != null ?
-                                patent.getPatentNumber() : patent.getApplicationNumber())
-                        .append(")\n")
-                        .append(techAnalysis.getResultJson())
-                        .append("\n---\n");
-                included++;
+                if (techAnalysis != null) {
+                    pairs.add(new PatentTechPair(patent, techAnalysis.getResultJson()));
+                }
             } catch (SQLException e) {
-                // Skip this patent
+                // Skip
             }
         }
+        return pairs;
+    }
 
-        if (included < 2) {
+    private InsightResult runCrossPatentAnalysis(List<Patent> patents, String analysisType,
+                                                  String templateName, CrossPatentProgressCallback callback) {
+        List<PatentTechPair> pairs = buildPatentTechPairs(patents, true);
+        return runChunkedOrDirect(pairs, patents, analysisType, templateName,
+                buildPlainSummary(), Map.of(), callback);
+    }
+
+    private InsightResult runChunkedOrDirect(List<PatentTechPair> pairs, List<Patent> allPatents,
+                                              String analysisType, String templateName,
+                                              Function<List<PatentTechPair>, String> summaryBuilder,
+                                              Map<String, String> extraVariables,
+                                              CrossPatentProgressCallback callback) {
+        if (pairs.size() < 2) {
             return new InsightResult(false, analysisType, null,
-                    "Need at least 2 patents with technology extraction. Found: " + included, 0);
+                    "Need at least 2 patents with technology extraction. Found: " + pairs.size(), 0);
         }
+
+        int batchSize = SettingsController.getBatchSize();
+        int idleTimeout = SettingsController.getIdleTimeout();
+
+        ClaudeCliService.StreamingCallback streamCallback = callback == null ? null
+                : new ClaudeCliService.StreamingCallback() {
+            @Override public void onStreamStart() { callback.onStreamingStatus("Claude is thinking..."); }
+            @Override public void onTextDelta(String text) { callback.onStreamingStatus("Receiving response..."); }
+            @Override public void onRetry(String message) { callback.onStreamingStatus(message); }
+            @Override public boolean isCancelled() { return callback.isCancelled(); }
+        };
 
         try {
             String template = ClaudeCliService.loadPromptTemplate(templateName);
-            Map<String, String> variables = Map.of("portfolio_summaries", summaries.toString());
 
-            int timeout = SettingsController.getAnalysisTimeout();
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeout);
+            if (pairs.size() <= batchSize) {
+                String summaries = summaryBuilder.apply(pairs);
+                Map<String, String> variables = new LinkedHashMap<>();
+                variables.put("portfolio_summaries", summaries);
+                variables.putAll(extraVariables);
 
-            if (cliResult.success() && cliResult.resultJson() != null) {
-                // Store with first patent's ID
-                PatentAnalysis pa = new PatentAnalysis();
-                pa.setPatentId(patents.get(0).getId());
-                pa.setAnalysisType(analysisType);
-                pa.setResultJson(cliResult.resultJson());
-                pa.setModelUsed(cliResult.modelUsed());
-                patentAnalysisDao.insertOrUpdate(pa);
+                ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyzeStreaming(
+                        template, variables, idleTimeout, streamCallback);
 
-                return new InsightResult(true, analysisType, cliResult.resultJson(),
-                        null, cliResult.durationMs());
-            } else {
-                return new InsightResult(false, analysisType, null,
-                        cliResult.error(), cliResult.durationMs());
+                return storeAndReturn(cliResult, allPatents, analysisType);
             }
+
+            // Chunked analysis
+            List<List<PatentTechPair>> chunks = partition(pairs, batchSize);
+            List<String> chunkResults = new ArrayList<>();
+            long totalDuration = 0;
+
+            for (int i = 0; i < chunks.size(); i++) {
+                if (callback != null && callback.isCancelled()) {
+                    return new InsightResult(false, analysisType, null, "Analysis cancelled.", totalDuration);
+                }
+
+                List<PatentTechPair> chunk = chunks.get(i);
+                if (chunk.size() < 2) continue;
+
+                if (callback != null) callback.onChunkProgress(i + 1, chunks.size());
+
+                String summaries = summaryBuilder.apply(chunk);
+                Map<String, String> variables = new LinkedHashMap<>();
+                variables.put("portfolio_summaries", summaries);
+                variables.putAll(extraVariables);
+
+                ClaudeCliService.AnalysisResult chunkResult = claudeCliService.analyzeStreaming(
+                        template, variables, idleTimeout, streamCallback);
+                totalDuration += chunkResult.durationMs();
+
+                if (chunkResult.success() && chunkResult.resultJson() != null) {
+                    chunkResults.add(chunkResult.resultJson());
+                }
+            }
+
+            if (chunkResults.isEmpty()) {
+                return new InsightResult(false, analysisType, null,
+                        "All chunks failed to produce results.", totalDuration);
+            }
+
+            if (chunkResults.size() == 1) {
+                ClaudeCliService.AnalysisResult singleResult = new ClaudeCliService.AnalysisResult(
+                        true, chunkResults.get(0), null, null, totalDuration);
+                return storeAndReturn(singleResult, allPatents, analysisType);
+            }
+
+            // Merge phase
+            if (callback != null) callback.onMergeProgress();
+
+            String mergeTemplateName = templateName + "-merge";
+            String mergeTemplate = ClaudeCliService.loadPromptTemplate(mergeTemplateName);
+
+            String combinedChunks = String.join("\n---CHUNK---\n", chunkResults);
+            Map<String, String> mergeVariables = new LinkedHashMap<>();
+            mergeVariables.put("chunk_results", combinedChunks);
+
+            ClaudeCliService.AnalysisResult mergeResult = claudeCliService.analyzeStreaming(
+                    mergeTemplate, mergeVariables, idleTimeout, streamCallback);
+            totalDuration += mergeResult.durationMs();
+
+            if (mergeResult.success() && mergeResult.resultJson() != null) {
+                ClaudeCliService.AnalysisResult finalResult = new ClaudeCliService.AnalysisResult(
+                        true, mergeResult.resultJson(), null, mergeResult.modelUsed(), totalDuration);
+                return storeAndReturn(finalResult, allPatents, analysisType);
+            }
+
+            // Merge failed — return concatenated chunk results as fallback
+            String fallbackJson = "{\"chunks\":" + chunkResults + ",\"merge_status\":\"failed\",\"merge_error\":"
+                    + "\"" + (mergeResult.error() != null ? mergeResult.error().replace("\"", "'") : "unknown") + "\"}";
+            ClaudeCliService.AnalysisResult fallbackResult = new ClaudeCliService.AnalysisResult(
+                    true, fallbackJson, null, null, totalDuration);
+            return storeAndReturn(fallbackResult, allPatents, analysisType);
+
         } catch (IOException e) {
             return new InsightResult(false, analysisType, null,
                     "Failed to load prompt template: " + e.getMessage(), 0);
@@ -316,6 +372,29 @@ public class InsightService {
             return new InsightResult(false, analysisType, null,
                     "Database error: " + e.getMessage(), 0);
         }
+    }
+
+    private InsightResult storeAndReturn(ClaudeCliService.AnalysisResult cliResult,
+                                          List<Patent> patents, String analysisType) throws SQLException {
+        if (cliResult.success() && cliResult.resultJson() != null) {
+            PatentAnalysis pa = new PatentAnalysis();
+            pa.setPatentId(patents.get(0).getId());
+            pa.setAnalysisType(analysisType);
+            pa.setResultJson(cliResult.resultJson());
+            pa.setModelUsed(cliResult.modelUsed());
+            patentAnalysisDao.insertOrUpdate(pa);
+            return new InsightResult(true, analysisType, cliResult.resultJson(), null, cliResult.durationMs());
+        } else {
+            return new InsightResult(false, analysisType, null, cliResult.error(), cliResult.durationMs());
+        }
+    }
+
+    private <T> List<List<T>> partition(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
     }
 
     public List<InsightResult> analyzeAll(String analysisType, String templateName,
@@ -407,6 +486,56 @@ public class InsightService {
             }
         } catch (SQLException ignored) {}
         return null;
+    }
+
+    public String exportSingleAnalysisMarkdown(String analysisType, String title) throws SQLException {
+        ObjectMapper om = new ObjectMapper();
+        List<Patent> patents = patentDao.findAll();
+        if (patents.isEmpty()) return "";
+
+        int firstId = patents.get(0).getId();
+        PatentAnalysis analysis = patentAnalysisDao.findByPatentIdAndType(firstId, analysisType);
+        if (analysis == null) return "";
+
+        StringBuilder md = new StringBuilder();
+        md.append("# ").append(title).append("\n\n");
+        md.append("*Generated: ").append(
+                analysis.getAnalyzedAt() != null
+                        ? analysis.getAnalyzedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        : LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        ).append("*\n\n");
+
+        try {
+            JsonNode root = om.readTree(analysis.getResultJson());
+            renderJsonAsMarkdown(md, root, 0);
+        } catch (Exception e) {
+            md.append("```json\n").append(analysis.getResultJson()).append("\n```\n");
+        }
+        return md.toString();
+    }
+
+    public String exportCrossPatentMarkdown() throws SQLException {
+        ObjectMapper om = new ObjectMapper();
+        List<Patent> patents = patentDao.findAll();
+        StringBuilder md = new StringBuilder();
+
+        md.append("# Cross-Patent Portfolio Analysis\n\n");
+        md.append("*Generated: ").append(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)).append("*\n\n");
+        md.append("- **Total Patents:** ").append(patents.size()).append("\n\n");
+
+        if (!patents.isEmpty()) {
+            int firstId = patents.get(0).getId();
+            appendCrossPatentSection(md, om, firstId, "CLUSTERING", "Cluster Analysis");
+            appendCrossPatentSection(md, om, firstId, "WHITESPACE", "Whitespace Opportunities");
+            appendCrossPatentSection(md, om, firstId, "ADJACENCY", "Adjacency Map");
+            appendCrossPatentSection(md, om, firstId, "TEMPORAL_TRENDS", "Temporal Trends");
+            appendCrossPatentSection(md, om, firstId, "CLAIM_COLLISION", "Claim Collision Report");
+            appendCrossPatentSection(md, om, firstId, "COMPETITOR_GAPS", "Competitive Gap Analysis");
+            appendCrossPatentSection(md, om, firstId, "CROSS_DOMAIN", "Cross-Domain Opportunities");
+            appendCrossPatentSection(md, om, firstId, "INVENTION_PROMPTS", "Invention Prompts");
+        }
+
+        return md.toString();
     }
 
     public String exportMarkdown() throws SQLException {
