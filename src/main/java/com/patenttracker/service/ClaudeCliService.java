@@ -89,8 +89,11 @@ public class ClaudeCliService {
             long duration = System.currentTimeMillis() - startTime;
             String resultJson = extractResultJson(stdout);
             String modelUsed = extractModelUsed(stdout);
+            long[] usage = extractUsage(stdout);
+            double cost = extractCost(stdout);
 
-            return new AnalysisResult(true, resultJson, null, modelUsed, duration);
+            return new AnalysisResult(true, resultJson, null, modelUsed, duration,
+                    usage[0], usage[1], cost);
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -162,6 +165,28 @@ public class ClaudeCliService {
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    private long[] extractUsage(String stdout) {
+        try {
+            JsonNode root = mapper.readTree(stdout);
+            JsonNode usage = root.path("usage");
+            if (!usage.isMissingNode()) {
+                long input = usage.path("input_tokens").asLong(0);
+                long output = usage.path("output_tokens").asLong(0);
+                return new long[]{input, output};
+            }
+        } catch (Exception ignored) {}
+        return new long[]{0, 0};
+    }
+
+    private double extractCost(String stdout) {
+        try {
+            JsonNode root = mapper.readTree(stdout);
+            if (root.has("cost_usd")) return root.get("cost_usd").asDouble(0.0);
+            if (root.has("total_cost_usd")) return root.get("total_cost_usd").asDouble(0.0);
+        } catch (Exception ignored) {}
+        return 0.0;
     }
 
     public boolean isAvailable() {
@@ -236,6 +261,8 @@ public class ClaudeCliService {
             AtomicBoolean timedOut = new AtomicBoolean(false);
             AtomicBoolean cancelled = new AtomicBoolean(false);
             String[] modelUsed = {null};
+            long[] usageTokens = {0, 0};
+            double[] costAccum = {0.0};
 
             CompletableFuture<String> stderrFuture = CompletableFuture.supplyAsync(() -> {
                 try (BufferedReader reader = new BufferedReader(
@@ -313,6 +340,16 @@ public class ClaudeCliService {
                                     String resultText = event.path("result").asText(null);
                                     if (resultText != null) accumulated.append(resultText);
                                 }
+                                JsonNode usage = event.path("usage");
+                                if (!usage.isMissingNode()) {
+                                    usageTokens[0] = usage.path("input_tokens").asLong(0);
+                                    usageTokens[1] = usage.path("output_tokens").asLong(0);
+                                }
+                                if (event.has("cost_usd")) {
+                                    costAccum[0] = event.get("cost_usd").asDouble(0.0);
+                                } else if (event.has("total_cost_usd")) {
+                                    costAccum[0] = event.get("total_cost_usd").asDouble(0.0);
+                                }
                             }
                         }
                     } catch (Exception ignored) {}
@@ -346,7 +383,8 @@ public class ClaudeCliService {
             if (callback != null) callback.onComplete(fullText);
 
             String resultJson = extractJsonFromText(fullText);
-            return new AnalysisResult(true, resultJson, null, modelUsed[0], duration);
+            return new AnalysisResult(true, resultJson, null, modelUsed[0], duration,
+                    usageTokens[0], usageTokens[1], costAccum[0]);
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -366,6 +404,12 @@ public class ClaudeCliService {
 
     public record AnalysisResult(
             boolean success, String resultJson, String error,
-            String modelUsed, long durationMs
-    ) {}
+            String modelUsed, long durationMs,
+            long inputTokens, long outputTokens, double costUsd
+    ) {
+        public AnalysisResult(boolean success, String resultJson, String error,
+                              String modelUsed, long durationMs) {
+            this(success, resultJson, error, modelUsed, durationMs, 0, 0, 0.0);
+        }
+    }
 }

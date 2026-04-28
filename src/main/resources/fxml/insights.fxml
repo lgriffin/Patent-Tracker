@@ -54,6 +54,20 @@
             <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
                     styleClass="secondary-button" managed="false" visible="false"/>
         </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="analyzeClaimsButton" text="Run Claims Analysis"
+                    onAction="#handleAnalyzeClaims" styleClass="primary-button">
+                <tooltip><Tooltip text="Run AI claims decomposition on each patent individually" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
+            <Button fx:id="analyzeExpansionButton" text="Run Expansion Analysis"
+                    onAction="#handleAnalyzeExpansion" styleClass="primary-button">
+                <tooltip><Tooltip text="Run AI expansion opportunity analysis on each patent individually" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
+            <Button fx:id="analyzePriorArtButton" text="Run Prior Art Analysis"
+                    onAction="#handleAnalyzePriorArt" styleClass="primary-button">
+                <tooltip><Tooltip text="Run AI prior art vulnerability assessment on each patent individually" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
+        </HBox>
 
         <!-- Progress -->
         <HBox spacing="10" alignment="CENTER_LEFT">
@@ -141,25 +155,25 @@
         </Label>
         <HBox spacing="15" alignment="CENTER">
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="whitespaceCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="whitespaceCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Uncovered technology areas adjacent to existing patents — opportunities for new filings" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Whitespace" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="clusteringCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="clusteringCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Thematic groups of patents that share common technologies, with gaps between clusters identified" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Clustering" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="adjacencyCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="adjacencyCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Scores uncovered areas by how easily reachable they are from existing patent claims" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Adjacency" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="temporalCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="temporalCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Filing trends over time — accelerating, stalling, or shifting technology focus areas" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Temporal" styleClass="stat-label"/>
@@ -167,25 +181,25 @@
         </HBox>
         <HBox spacing="15" alignment="CENTER">
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="collisionCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="collisionCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Overlapping claims across patents — redundancy detection and continuation opportunities" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Collision" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="competitorCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="competitorCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Areas where competitors are likely investing but your portfolio has gaps or no coverage" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Competitor" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="inventionCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="inventionCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Concrete invention disclosure ideas with problem statements and references to source US patents" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Invention" styleClass="stat-label"/>
             </VBox>
             <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="crossDomainCountLabel" text="Not run" styleClass="stat-label" style="-fx-font-size: 13px; -fx-font-weight: bold;">
+                <Label fx:id="crossDomainCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
                     <tooltip><Tooltip text="Novel inventions that emerge from combining technology domains across different parts of the portfolio" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Cross-Domain" styleClass="stat-label"/>

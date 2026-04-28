@@ -45,6 +45,9 @@ public class InsightsController {
     @FXML private Button competitorButton;
     @FXML private Button inventionButton;
     @FXML private Button crossDomainButton;
+    @FXML private Button analyzeClaimsButton;
+    @FXML private Button analyzeExpansionButton;
+    @FXML private Button analyzePriorArtButton;
     @FXML private Button exportButton;
     @FXML private Button exportCrossButton;
     @FXML private ProgressBar progressBar;
@@ -184,6 +187,62 @@ public class InsightsController {
     }
 
     @FXML
+    public void handleAnalyzeClaims() {
+        runBatchPerPatentAnalysis("Claims Analysis", "CLAIMS", "claims");
+    }
+
+    @FXML
+    public void handleAnalyzeExpansion() {
+        runBatchPerPatentAnalysis("Expansion Analysis", "EXPANSION", "expansion");
+    }
+
+    @FXML
+    public void handleAnalyzePriorArt() {
+        runBatchPerPatentAnalysis("Prior Art Analysis", "PRIOR_ART", "prior-art");
+    }
+
+    private void runBatchPerPatentAnalysis(String label, String analysisType, String templateName) {
+        if (!new ClaudeCliService().isAvailable()) {
+            progressLabel.setText("Claude CLI not found. Configure it in Settings.");
+            return;
+        }
+
+        cancelled.set(false);
+        setRunning(true);
+        progressBar.setProgress(0);
+        progressLabel.setText("Starting batch " + label.toLowerCase() + "...");
+
+        new Thread(() -> {
+            List<InsightService.InsightResult> results =
+                    insightService.analyzeAll(analysisType, templateName,
+                            new InsightService.AnalysisProgressCallback() {
+                                @Override
+                                public void onProgress(int current, int total, String title) {
+                                    Platform.runLater(() -> {
+                                        progressBar.setProgress((double) current / total);
+                                        progressLabel.setText(label + " " + current + " of " + total + ": "
+                                                + truncate(title, 50));
+                                    });
+                                }
+                                @Override
+                                public void onResult(InsightService.InsightResult result) {}
+                                @Override
+                                public boolean isCancelled() { return cancelled.get(); }
+                            });
+
+            Platform.runLater(() -> {
+                long success = results.stream().filter(InsightService.InsightResult::success).count();
+                long failed = results.size() - success;
+                progressLabel.setText(label + " complete: " + success + " analyzed"
+                        + (failed > 0 ? ", " + failed + " failed" : ""));
+                progressBar.setProgress(1.0);
+                setRunning(false);
+                refresh();
+            });
+        }).start();
+    }
+
+    @FXML
     private void handleWhitespace() {
         runCrossPatentAnalysis("Whitespace Finder", "WHITESPACE");
     }
@@ -246,6 +305,7 @@ public class InsightsController {
                         progressLabel.setText("Using cached " + label + " results.");
                         return;
                     }
+                    insightService.deleteCachedAnalysis(patents.get(0).getId(), analysisType);
                 }
             }
         } catch (SQLException e) {
@@ -298,7 +358,8 @@ public class InsightsController {
 
                 Platform.runLater(() -> {
                     if (result.success()) {
-                        progressLabel.setText(label + " completed in " + (result.durationMs() / 1000) + "s.");
+                        progressLabel.setText(label + " completed in " + (result.durationMs() / 1000) + "s."
+                                + formatCost(result));
                     } else {
                         progressLabel.setText(label + " failed: " + result.error());
                     }
@@ -359,13 +420,13 @@ public class InsightsController {
                         patents.get(0).getId(), analysisType);
                 if (analysis != null && analysis.getAnalyzedAt() != null) {
                     label.setText("Done " + analysis.getAnalyzedAt().format(DISPLAY_DATETIME));
-                    label.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
+                    label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
                     return;
                 }
             }
         } catch (SQLException ignored) {}
         label.setText("Not run");
-        label.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #666;");
+        label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #999;");
     }
 
     @FXML
@@ -429,6 +490,9 @@ public class InsightsController {
     private void setRunning(boolean running) {
         extractAllButton.setDisable(running);
         analyzeAllButton.setDisable(running);
+        analyzeClaimsButton.setDisable(running);
+        analyzeExpansionButton.setDisable(running);
+        analyzePriorArtButton.setDisable(running);
         whitespaceButton.setDisable(running);
         clusteringButton.setDisable(running);
         adjacencyButton.setDisable(running);
@@ -476,19 +540,17 @@ public class InsightsController {
                 content.setWrapText(true);
                 content.setPrefRowCount(15);
                 content.setStyle("-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 12px;");
-                VBox.setVgrow(content, Priority.ALWAYS);
 
                 Button exportBtn = new Button("Export");
-                exportBtn.setStyle("-fx-font-size: 11px;");
                 exportBtn.getStyleClass().add("secondary-button");
                 exportBtn.setOnAction(e -> exportSingleResult(type, label));
 
                 HBox toolbar = new HBox(10);
                 toolbar.setAlignment(Pos.CENTER_RIGHT);
-                toolbar.setPadding(new Insets(5, 0, 0, 0));
+                toolbar.setPadding(new Insets(0, 0, 5, 0));
                 toolbar.getChildren().add(exportBtn);
 
-                VBox wrapper = new VBox(5, content, toolbar);
+                VBox wrapper = new VBox(5, toolbar, content);
                 wrapper.setPadding(new Insets(5));
 
                 TitledPane pane = new TitledPane(title, wrapper);
@@ -513,5 +575,26 @@ public class InsightsController {
     private String truncate(String s, int max) {
         if (s == null) return "";
         return s.length() <= max ? s : s.substring(0, max) + "...";
+    }
+
+    private String formatCost(InsightService.InsightResult result) {
+        if (result.costUsd() <= 0 && result.inputTokens() <= 0) return "";
+        StringBuilder sb = new StringBuilder(" | ");
+        if (result.costUsd() > 0) {
+            sb.append(String.format("$%.4f", result.costUsd()));
+        }
+        if (result.inputTokens() > 0 || result.outputTokens() > 0) {
+            if (result.costUsd() > 0) sb.append(" (");
+            sb.append(formatTokenCount(result.inputTokens())).append(" in / ")
+              .append(formatTokenCount(result.outputTokens())).append(" out");
+            if (result.costUsd() > 0) sb.append(")");
+        }
+        return sb.toString();
+    }
+
+    private String formatTokenCount(long tokens) {
+        if (tokens >= 1_000_000) return String.format("%.1fM", tokens / 1_000_000.0);
+        if (tokens >= 1_000) return String.format("%.1fK", tokens / 1_000.0);
+        return String.valueOf(tokens);
     }
 }

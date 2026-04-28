@@ -91,9 +91,12 @@
         <TableView fx:id="collaboratorTable" prefHeight="330">
             <columns>
                 <TableColumn fx:id="colRank" text="#" prefWidth="40" sortable="false"/>
-                <TableColumn fx:id="colCollaborator" text="Collaborator" prefWidth="200" sortable="false"/>
-                <TableColumn fx:id="colPatentCount" text="Patents" prefWidth="80" sortable="false"/>
-                <TableColumn fx:id="colCollabClassifications" text="Top Classifications" prefWidth="300" sortable="false"/>
+                <TableColumn fx:id="colCollaborator" text="Collaborator" prefWidth="180" sortable="false"/>
+                <TableColumn fx:id="colPatentCount" text="Patents" prefWidth="65" sortable="false"/>
+                <TableColumn fx:id="colPublished" text="Published" prefWidth="75" sortable="false"/>
+                <TableColumn fx:id="colAllowed" text="Allowed" prefWidth="65" sortable="false"/>
+                <TableColumn fx:id="colPending" text="Pending" prefWidth="65" sortable="false"/>
+                <TableColumn fx:id="colCollabClassifications" text="Top Classifications" prefWidth="250" sortable="false"/>
             </columns>
         </TableView>
     </VBox>
