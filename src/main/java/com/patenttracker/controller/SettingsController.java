@@ -37,6 +37,8 @@ public class SettingsController {
     @FXML private TextField claudeCliPathField;
     @FXML private Label claudeCliStatusLabel;
     @FXML private Spinner<Integer> analysisTimeoutSpinner;
+    @FXML private Spinner<Integer> idleTimeoutSpinner;
+    @FXML private Spinner<Integer> batchSizeSpinner;
 
     private Runnable onOwnerChanged;
 
@@ -48,6 +50,14 @@ public class SettingsController {
 
         analysisTimeoutSpinner.setValueFactory(
             new SpinnerValueFactory.IntegerSpinnerValueFactory(120, 1200, 600, 60)
+        );
+
+        idleTimeoutSpinner.setValueFactory(
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(30, 600, 120, 30)
+        );
+
+        batchSizeSpinner.setValueFactory(
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(5, 100, 30, 5)
         );
 
         // Make the combo editable so users can type a name not yet in the DB
@@ -89,6 +99,18 @@ public class SettingsController {
             rateLimitSpinner.getValueFactory().setValue(Integer.parseInt(delay));
         } catch (NumberFormatException e) {
             rateLimitSpinner.getValueFactory().setValue(1100);
+        }
+        String idleTimeout = props.getProperty("claude.idle.timeout", "120");
+        try {
+            idleTimeoutSpinner.getValueFactory().setValue(Integer.parseInt(idleTimeout));
+        } catch (NumberFormatException e) {
+            idleTimeoutSpinner.getValueFactory().setValue(120);
+        }
+        String batchSize = props.getProperty("claude.batch.size", "30");
+        try {
+            batchSizeSpinner.getValueFactory().setValue(Integer.parseInt(batchSize));
+        } catch (NumberFormatException e) {
+            batchSizeSpinner.getValueFactory().setValue(30);
         }
     }
 
@@ -157,6 +179,8 @@ public class SettingsController {
         props.setProperty("uspto.rate.delay", String.valueOf(rateLimitSpinner.getValue()));
         props.setProperty("claude.cli.path", claudeCliPathField.getText());
         props.setProperty("claude.analysis.timeout", String.valueOf(analysisTimeoutSpinner.getValue()));
+        props.setProperty("claude.idle.timeout", String.valueOf(idleTimeoutSpinner.getValue()));
+        props.setProperty("claude.batch.size", String.valueOf(batchSizeSpinner.getValue()));
         saveProperties(props);
 
         saved = true;
@@ -306,6 +330,24 @@ public class SettingsController {
             return Integer.parseInt(delay);
         } catch (NumberFormatException e) {
             return 1100;
+        }
+    }
+
+    public static int getIdleTimeout() {
+        String val = loadProperties().getProperty("claude.idle.timeout", "120");
+        try {
+            return Integer.parseInt(val);
+        } catch (NumberFormatException e) {
+            return 120;
+        }
+    }
+
+    public static int getBatchSize() {
+        String val = loadProperties().getProperty("claude.batch.size", "30");
+        try {
+            return Integer.parseInt(val);
+        } catch (NumberFormatException e) {
+            return 30;
         }
     }
 }

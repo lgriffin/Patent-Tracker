@@ -9,7 +9,13 @@ import com.patenttracker.service.PdfExtractorService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -40,6 +46,7 @@ public class InsightsController {
     @FXML private Button inventionButton;
     @FXML private Button crossDomainButton;
     @FXML private Button exportButton;
+    @FXML private Button exportCrossButton;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
     @FXML private Button cancelButton;
@@ -85,14 +92,15 @@ public class InsightsController {
         technologyCountLabel.setText(String.valueOf(byType.getOrDefault("TECHNOLOGY", 0)));
         expansionCountLabel.setText(String.valueOf(byType.getOrDefault("EXPANSION", 0)));
         priorArtCountLabel.setText(String.valueOf(byType.getOrDefault("PRIOR_ART", 0)));
-        whitespaceCountLabel.setText(String.valueOf(byType.getOrDefault("WHITESPACE", 0)));
-        clusteringCountLabel.setText(String.valueOf(byType.getOrDefault("CLUSTERING", 0)));
-        adjacencyCountLabel.setText(String.valueOf(byType.getOrDefault("ADJACENCY", 0)));
-        temporalCountLabel.setText(String.valueOf(byType.getOrDefault("TEMPORAL_TRENDS", 0)));
-        collisionCountLabel.setText(String.valueOf(byType.getOrDefault("CLAIM_COLLISION", 0)));
-        competitorCountLabel.setText(String.valueOf(byType.getOrDefault("COMPETITOR_GAPS", 0)));
-        inventionCountLabel.setText(String.valueOf(byType.getOrDefault("INVENTION_PROMPTS", 0)));
-        crossDomainCountLabel.setText(String.valueOf(byType.getOrDefault("CROSS_DOMAIN", 0)));
+
+        refreshPortfolioStatus(whitespaceCountLabel, "WHITESPACE");
+        refreshPortfolioStatus(clusteringCountLabel, "CLUSTERING");
+        refreshPortfolioStatus(adjacencyCountLabel, "ADJACENCY");
+        refreshPortfolioStatus(temporalCountLabel, "TEMPORAL_TRENDS");
+        refreshPortfolioStatus(collisionCountLabel, "CLAIM_COLLISION");
+        refreshPortfolioStatus(competitorCountLabel, "COMPETITOR_GAPS");
+        refreshPortfolioStatus(inventionCountLabel, "INVENTION_PROMPTS");
+        refreshPortfolioStatus(crossDomainCountLabel, "CROSS_DOMAIN");
 
         loadCrossPatentResults();
     }
@@ -246,20 +254,45 @@ public class InsightsController {
 
         setRunning(true);
         progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
-        progressLabel.setText("Running " + label + "... (this may take several minutes)");
+        progressLabel.setText("Running " + label + "...");
+
+        InsightService.CrossPatentProgressCallback progressCallback =
+                new InsightService.CrossPatentProgressCallback() {
+            @Override
+            public void onChunkProgress(int currentChunk, int totalChunks) {
+                Platform.runLater(() -> {
+                    progressBar.setProgress((double) currentChunk / (totalChunks + 1));
+                    progressLabel.setText("Running " + label + "... Chunk " + currentChunk + "/" + totalChunks);
+                });
+            }
+            @Override
+            public void onMergeProgress() {
+                Platform.runLater(() -> {
+                    progressLabel.setText("Running " + label + "... Merging chunk results...");
+                });
+            }
+            @Override
+            public void onStreamingStatus(String status) {
+                Platform.runLater(() -> {
+                    progressLabel.setText("Running " + label + "... " + status);
+                });
+            }
+            @Override
+            public boolean isCancelled() { return cancelled.get(); }
+        };
 
         new Thread(() -> {
             try {
                 List<Patent> patents = patentDao.findAll();
                 InsightService.InsightResult result = switch (analysisType) {
-                    case "WHITESPACE" -> insightService.analyzeWhitespace(patents);
-                    case "CLUSTERING" -> insightService.analyzeClustering(patents);
-                    case "ADJACENCY" -> insightService.analyzeAdjacency(patents);
-                    case "TEMPORAL_TRENDS" -> insightService.analyzeTemporalTrends(patents);
-                    case "CLAIM_COLLISION" -> insightService.analyzeClaimCollision(patents);
-                    case "COMPETITOR_GAPS" -> insightService.analyzeCompetitorGaps(patents);
-                    case "INVENTION_PROMPTS" -> insightService.analyzeInventionPrompts(patents);
-                    case "CROSS_DOMAIN" -> insightService.analyzeCrossDomain(patents);
+                    case "WHITESPACE" -> insightService.analyzeWhitespace(patents, progressCallback);
+                    case "CLUSTERING" -> insightService.analyzeClustering(patents, progressCallback);
+                    case "ADJACENCY" -> insightService.analyzeAdjacency(patents, progressCallback);
+                    case "TEMPORAL_TRENDS" -> insightService.analyzeTemporalTrends(patents, progressCallback);
+                    case "CLAIM_COLLISION" -> insightService.analyzeClaimCollision(patents, progressCallback);
+                    case "COMPETITOR_GAPS" -> insightService.analyzeCompetitorGaps(patents, progressCallback);
+                    case "INVENTION_PROMPTS" -> insightService.analyzeInventionPrompts(patents, progressCallback);
+                    case "CROSS_DOMAIN" -> insightService.analyzeCrossDomain(patents, progressCallback);
                     default -> new InsightService.InsightResult(false, analysisType, null, "Unknown type", 0);
                 };
 
@@ -318,6 +351,81 @@ public class InsightsController {
         progressLabel.setText("Cancelling...");
     }
 
+    private void refreshPortfolioStatus(Label label, String analysisType) {
+        try {
+            List<Patent> patents = patentDao.findAll();
+            if (!patents.isEmpty()) {
+                PatentAnalysis analysis = insightService.getCachedAnalysis(
+                        patents.get(0).getId(), analysisType);
+                if (analysis != null && analysis.getAnalyzedAt() != null) {
+                    label.setText("Done " + analysis.getAnalyzedAt().format(DISPLAY_DATETIME));
+                    label.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
+                    return;
+                }
+            }
+        } catch (SQLException ignored) {}
+        label.setText("Not run");
+        label.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #666;");
+    }
+
+    @FXML
+    private void handleExportCrossPatent() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Cross-Patent Results");
+        fileChooser.setInitialFileName("cross-patent-analysis.md");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Markdown Files", "*.md"));
+
+        Stage stage = (Stage) progressLabel.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            progressLabel.setText("Exporting...");
+            new Thread(() -> {
+                try {
+                    String markdown = insightService.exportCrossPatentMarkdown();
+                    try (FileWriter writer = new FileWriter(file)) {
+                        writer.write(markdown);
+                    }
+                    Platform.runLater(() ->
+                            progressLabel.setText("Exported to " + file.getName()));
+                } catch (Exception e) {
+                    Platform.runLater(() ->
+                            progressLabel.setText("Export failed: " + e.getMessage()));
+                }
+            }).start();
+        }
+    }
+
+    private void exportSingleResult(String analysisType, String label) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export " + label);
+        String filename = label.toLowerCase().replace(" ", "-") + ".md";
+        fileChooser.setInitialFileName(filename);
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Markdown Files", "*.md"));
+
+        Stage stage = (Stage) progressLabel.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            progressLabel.setText("Exporting " + label + "...");
+            new Thread(() -> {
+                try {
+                    String markdown = insightService.exportSingleAnalysisMarkdown(analysisType, label);
+                    try (FileWriter writer = new FileWriter(file)) {
+                        writer.write(markdown);
+                    }
+                    Platform.runLater(() ->
+                            progressLabel.setText("Exported " + label + " to " + file.getName()));
+                } catch (Exception e) {
+                    Platform.runLater(() ->
+                            progressLabel.setText("Export failed: " + e.getMessage()));
+                }
+            }).start();
+        }
+    }
+
     private void setRunning(boolean running) {
         extractAllButton.setDisable(running);
         analyzeAllButton.setDisable(running);
@@ -330,6 +438,7 @@ public class InsightsController {
         inventionButton.setDisable(running);
         crossDomainButton.setDisable(running);
         exportButton.setDisable(running);
+        exportCrossButton.setDisable(running);
         cancelButton.setManaged(running);
         cancelButton.setVisible(running);
     }
@@ -367,8 +476,22 @@ public class InsightsController {
                 content.setWrapText(true);
                 content.setPrefRowCount(15);
                 content.setStyle("-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 12px;");
+                VBox.setVgrow(content, Priority.ALWAYS);
 
-                TitledPane pane = new TitledPane(title, content);
+                Button exportBtn = new Button("Export");
+                exportBtn.setStyle("-fx-font-size: 11px;");
+                exportBtn.getStyleClass().add("secondary-button");
+                exportBtn.setOnAction(e -> exportSingleResult(type, label));
+
+                HBox toolbar = new HBox(10);
+                toolbar.setAlignment(Pos.CENTER_RIGHT);
+                toolbar.setPadding(new Insets(5, 0, 0, 0));
+                toolbar.getChildren().add(exportBtn);
+
+                VBox wrapper = new VBox(5, content, toolbar);
+                wrapper.setPadding(new Insets(5));
+
+                TitledPane pane = new TitledPane(title, wrapper);
                 pane.setExpanded(false);
                 resultsAccordion.getPanes().add(pane);
             }

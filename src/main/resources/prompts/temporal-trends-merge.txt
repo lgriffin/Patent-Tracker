@@ -1,0 +1,59 @@
+You are synthesizing multiple partial temporal trend analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different time-ordered subset of the portfolio.
+
+Your task:
+1. Expand "time_range" to cover the full span across all chunks
+2. Merge "domain_trends" for the same domain — sum filing_count, take earliest first_filing_year, latest last_filing_year, and reassess the trend
+3. Consolidate "emerging_themes" — deduplicate and update recent_filings counts
+4. Consolidate "declining_themes" — deduplicate and update timelines
+5. Merge "innovation_shifts" — reconcile overlapping transition periods
+6. Synthesize "forecast" from the combined trend data
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "time_range": {
+    "earliest_filing": "YYYY-MM-DD",
+    "latest_filing": "YYYY-MM-DD",
+    "total_years": 0
+  },
+  "domain_trends": [
+    {
+      "domain": "Technology domain name",
+      "filing_count": 0,
+      "first_filing_year": 0,
+      "last_filing_year": 0,
+      "trend": "ACCELERATING, STEADY, STALLING, or ABANDONED",
+      "peak_period": "Year range of highest activity",
+      "notes": "Contextual observation about this trend"
+    }
+  ],
+  "emerging_themes": [
+    {
+      "theme": "Recently emerging area",
+      "first_appeared": "Year",
+      "recent_filings": 0,
+      "trajectory": "Description of growth trajectory"
+    }
+  ],
+  "declining_themes": [
+    {
+      "theme": "Area with declining activity",
+      "last_filing": "Year",
+      "possible_reasons": ["Why this may have stalled"],
+      "revival_potential": "LOW, MEDIUM, or HIGH"
+    }
+  ],
+  "innovation_shifts": [
+    {
+      "from_area": "Older focus area",
+      "to_area": "Newer focus area",
+      "transition_period": "Year range",
+      "significance": "What this shift reveals about strategy"
+    }
+  ],
+  "forecast": [
+    "Predicted future filing directions based on observed trends"
+  ]
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

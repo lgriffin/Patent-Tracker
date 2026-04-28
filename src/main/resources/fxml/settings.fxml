@@ -82,6 +82,20 @@
     <Label text="Timeout for cross-patent analyses. Increase for large portfolios (default: 600s)."
            style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
 
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Idle Timeout (seconds):"/>
+        <Spinner fx:id="idleTimeoutSpinner" prefWidth="120"/>
+    </HBox>
+    <Label text="Time without output before analysis is considered stuck (default: 120s). Streaming mode only."
+           style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Patents per Batch:"/>
+        <Spinner fx:id="batchSizeSpinner" prefWidth="120"/>
+    </HBox>
+    <Label text="Number of patents per chunk for portfolio analysis. Lower = more reliable but needs merge step (default: 30)."
+           style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+
     <Region VBox.vgrow="ALWAYS"/>
 
     <HBox spacing="10" alignment="CENTER_RIGHT">

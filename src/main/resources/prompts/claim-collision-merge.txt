@@ -1,0 +1,48 @@
+You are synthesizing multiple partial claim collision analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+IMPORTANT: Claim collisions can only be detected among patents that were analyzed together in the same chunk. Patents in different chunks were not directly compared for overlapping claims, so some cross-chunk collisions may be missing. Note this limitation in the overall_assessment.
+
+Your task:
+1. Merge all "collisions" — deduplicate by patent_group, keep the highest overlap_severity for duplicates
+2. Merge all "near_misses" — deduplicate by patent pair
+3. Consolidate "continuation_opportunities" — deduplicate and keep the highest priority
+4. Recompute "portfolio_coherence" scores across the full portfolio
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "collisions": [
+    {
+      "patent_group": ["Patent titles that have overlapping claims"],
+      "overlap_area": "The specific technology area where claims overlap",
+      "overlap_severity": "HIGH, MEDIUM, or LOW",
+      "overlap_type": "REDUNDANT, COMPLEMENTARY, or CONTINUATION_OPPORTUNITY",
+      "details": "Specific description of what overlaps and how",
+      "recommendation": "What to do about this overlap"
+    }
+  ],
+  "near_misses": [
+    {
+      "patent_a": "First patent title",
+      "patent_b": "Second patent title",
+      "shared_elements": ["Technology elements they share"],
+      "differentiator": "What keeps them from fully colliding",
+      "risk_level": "LOW or MEDIUM"
+    }
+  ],
+  "continuation_opportunities": [
+    {
+      "parent_patents": ["Patent titles that could serve as parent applications"],
+      "continuation_area": "What a continuation or divisional could claim",
+      "rationale": "Why this is a good continuation opportunity",
+      "priority": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "portfolio_coherence": {
+    "redundancy_score": "1-10 (10 = no redundancy)",
+    "strategic_overlap_score": "1-10 (10 = all overlaps are strategic)",
+    "overall_assessment": "Summary of portfolio claim coherence (note: analysis was chunked, so some cross-chunk collisions may not have been detected)"
+  }
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

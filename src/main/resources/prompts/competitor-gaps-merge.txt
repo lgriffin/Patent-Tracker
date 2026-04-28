@@ -1,0 +1,53 @@
+You are synthesizing multiple partial competitor gap analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+Your task:
+1. Merge "portfolio_strengths" — deduplicate by area, take the highest depth rating
+2. Merge "likely_competitor_areas" — deduplicate, keep the highest gap_severity for duplicates, update our_coverage based on combined portfolio
+3. Consolidate "defensive_gaps" — deduplicate and keep the highest urgency
+4. Merge "unique_positions" — deduplicate by area
+5. Synthesize "strategic_recommendations" into a coherent, deduplicated, prioritized set
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "portfolio_strengths": [
+    {
+      "area": "Technology area where this portfolio is strong",
+      "depth": "DEEP, MODERATE, or SHALLOW",
+      "competitive_advantage": "Why this strength matters competitively"
+    }
+  ],
+  "likely_competitor_areas": [
+    {
+      "area": "Technology area competitors are likely pursuing",
+      "why_likely": "Industry signals suggesting competitor investment",
+      "our_coverage": "NONE, MINIMAL, or PARTIAL",
+      "gap_severity": "CRITICAL, SIGNIFICANT, or MINOR",
+      "recommended_action": "What to do about this gap"
+    }
+  ],
+  "defensive_gaps": [
+    {
+      "area": "Area where lack of patents could expose the portfolio owner",
+      "risk": "Description of the competitive risk",
+      "mitigation": "How to address this defensively",
+      "urgency": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "unique_positions": [
+    {
+      "area": "Area where this portfolio likely has unique coverage",
+      "moat_strength": "How defensible this position is",
+      "monetization_potential": "Licensing or enforcement opportunities"
+    }
+  ],
+  "strategic_recommendations": [
+    {
+      "action": "Specific recommended action",
+      "rationale": "Why this matters competitively",
+      "priority": "HIGH, MEDIUM, or LOW"
+    }
+  ]
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

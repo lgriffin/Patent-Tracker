@@ -1,0 +1,49 @@
+You are synthesizing multiple partial cross-domain combination analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+Your task:
+1. Merge "domain_inventory" — combine patent_count for the same domain, merge core_capabilities lists
+2. Merge "cross_domain_opportunities" — deduplicate by intersection_name or domains_combined, keep the best entries
+3. Consolidate "triple_intersections" — deduplicate by domain set
+4. Merge "underexplored_combinations" — deduplicate by domain pair
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "domain_inventory": [
+    {
+      "domain": "Identified technology domain",
+      "patent_count": 0,
+      "core_capabilities": ["Key technical capabilities in this domain"]
+    }
+  ],
+  "cross_domain_opportunities": [
+    {
+      "domains_combined": ["Domain A", "Domain B"],
+      "intersection_name": "Name for this cross-domain area",
+      "opportunity": "What novel invention could emerge from this combination",
+      "example_applications": ["Specific use cases for the combined technology"],
+      "existing_proximity": ["Any existing patents that partially touch this intersection"],
+      "novelty_potential": "HIGH, MEDIUM, or LOW",
+      "market_relevance": "HIGH, MEDIUM, or LOW",
+      "suggested_claims": ["Types of claims that could be filed at this intersection"]
+    }
+  ],
+  "triple_intersections": [
+    {
+      "domains": ["Domain A", "Domain B", "Domain C"],
+      "opportunity": "What emerges from combining all three",
+      "complexity": "HIGH or MEDIUM",
+      "potential_impact": "Description of potential impact"
+    }
+  ],
+  "underexplored_combinations": [
+    {
+      "domains": ["Domain X", "Domain Y"],
+      "why_underexplored": "Why this combination hasn't been pursued yet",
+      "barrier": "What makes it difficult",
+      "breakthrough_potential": "What could unlock this combination"
+    }
+  ]
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

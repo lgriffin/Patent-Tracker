@@ -1,0 +1,30 @@
+You are synthesizing multiple partial whitespace analyses of a patent portfolio into a single coherent result. Each partial analysis examined a different subset of the portfolio.
+
+Your task:
+1. Merge all "covered_areas" lists, removing duplicates
+2. Merge all "whitespace_opportunities", combining similar opportunities (same area) and keeping the highest priority
+3. Synthesize "strategic_recommendations" into a coherent, deduplicated set
+4. Merge "cross_domain_opportunities", removing duplicates and combining related ones
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "covered_areas": ["List of well-covered technology domains in this portfolio"],
+  "whitespace_opportunities": [
+    {
+      "area": "Name of the uncovered area",
+      "rationale": "Why this area is adjacent and valuable",
+      "related_patents": ["Which existing patents are closest to this area"],
+      "potential_claims": ["Types of claims that could be filed here"],
+      "priority": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "strategic_recommendations": [
+    "High-level strategic advice for portfolio expansion"
+  ],
+  "cross_domain_opportunities": [
+    "Areas where combining two existing patent domains could yield new filings"
+  ]
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}
