@@ -107,22 +107,26 @@ public class StatsService {
         );
     }
 
-    public record CollaboratorInfo(String name, int patents, String topClassifications) {}
+    public record CollaboratorInfo(String name, int patents, int published, int allowed, int pending,
+                                    String topClassifications) {}
 
     /**
-     * Returns top collaborators excluding the owner, with patent count and top classifications.
+     * Returns top collaborators excluding the owner, with patent count, status breakdown,
+     * and top classifications.
      */
     public List<CollaboratorInfo> getTopCollaboratorsWithClassifications(String ownerName, int limit)
             throws SQLException {
         List<CollaboratorInfo> results = new ArrayList<>();
 
-        // Get top collaborators
         String sql = "SELECT i.id, i.full_name, COUNT(DISTINCT pi.patent_id) as cnt FROM inventor i " +
                      "JOIN patent_inventor pi ON i.id = pi.inventor_id " +
                      "WHERE i.full_name != ? AND i.username != ? " +
                      "GROUP BY i.id ORDER BY cnt DESC LIMIT ?";
 
-        // For each collaborator, get their top tags
+        String statusSql = "SELECT p.pto_status, COUNT(DISTINCT p.id) as cnt FROM patent p " +
+                           "JOIN patent_inventor pi ON p.id = pi.patent_id " +
+                           "WHERE pi.inventor_id = ? GROUP BY p.pto_status";
+
         String tagSql = "SELECT t.name, COUNT(DISTINCT pt.patent_id) as cnt FROM tag t " +
                         "JOIN patent_tag pt ON t.id = pt.tag_id " +
                         "JOIN patent_inventor pi ON pi.patent_id = pt.patent_id " +
@@ -130,6 +134,7 @@ public class StatsService {
                         "GROUP BY t.id ORDER BY cnt DESC LIMIT 3";
 
         try (PreparedStatement ps = conn.prepareStatement(sql);
+             PreparedStatement statusPs = conn.prepareStatement(statusSql);
              PreparedStatement tagPs = conn.prepareStatement(tagSql)) {
             ps.setString(1, ownerName);
             ps.setString(2, ownerName);
@@ -140,14 +145,34 @@ public class StatsService {
                 String name = rs.getString("full_name");
                 int patents = rs.getInt("cnt");
 
-                // Get top 3 tags for this collaborator
+                statusPs.setInt(1, inventorId);
+                ResultSet statusRs = statusPs.executeQuery();
+                int published = 0, allowed = 0, pending = 0;
+                while (statusRs.next()) {
+                    String status = statusRs.getString("pto_status");
+                    int count = statusRs.getInt("cnt");
+                    if (status == null) continue;
+                    String lower = status.toLowerCase();
+                    if (lower.contains("patented") || lower.contains("issued")
+                            || lower.contains("issue fee")
+                            || lower.contains("allowance") || lower.contains("allowed")) {
+                        allowed += count;
+                    } else if (lower.contains("published") || lower.contains("publication")) {
+                        published += count;
+                    } else if (!lower.contains("abandoned") && !lower.contains("expired")
+                            && !lower.contains("withdrawn")) {
+                        pending += count;
+                    }
+                }
+
                 tagPs.setInt(1, inventorId);
                 ResultSet tagRs = tagPs.executeQuery();
                 List<String> tags = new ArrayList<>();
                 while (tagRs.next()) {
                     tags.add(tagRs.getString("name"));
                 }
-                results.add(new CollaboratorInfo(name, patents, String.join(", ", tags)));
+                results.add(new CollaboratorInfo(name, patents, published, allowed, pending,
+                        String.join(", ", tags)));
             }
         }
         return results;

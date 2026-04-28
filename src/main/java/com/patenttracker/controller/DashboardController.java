@@ -43,10 +43,14 @@ public class DashboardController {
     @FXML @SuppressWarnings("rawtypes") private TableColumn colRank;
     @FXML @SuppressWarnings("rawtypes") private TableColumn colCollaborator;
     @FXML @SuppressWarnings("rawtypes") private TableColumn colPatentCount;
+    @FXML @SuppressWarnings("rawtypes") private TableColumn colPublished;
+    @FXML @SuppressWarnings("rawtypes") private TableColumn colAllowed;
+    @FXML @SuppressWarnings("rawtypes") private TableColumn colPending;
     @FXML @SuppressWarnings("rawtypes") private TableColumn colCollabClassifications;
 
     record ClassificationRow(int rank, String name, int count) {}
-    record CollaboratorRow(int rank, String name, int patents, String classifications) {}
+    record CollaboratorRow(int rank, String name, int patents, int published, int allowed, int pending,
+                           String classifications) {}
 
     private final StatsService statsService = new StatsService();
 
@@ -68,6 +72,12 @@ public class DashboardController {
                 new SimpleStringProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).name()));
         colPatentCount.setCellValueFactory(cd ->
                 new SimpleIntegerProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).patents()));
+        colPublished.setCellValueFactory(cd ->
+                new SimpleIntegerProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).published()));
+        colAllowed.setCellValueFactory(cd ->
+                new SimpleIntegerProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).allowed()));
+        colPending.setCellValueFactory(cd ->
+                new SimpleIntegerProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).pending()));
         colCollabClassifications.setCellValueFactory(cd ->
                 new SimpleStringProperty(((CollaboratorRow) ((TableColumn.CellDataFeatures) cd).getValue()).classifications()));
 
@@ -143,7 +153,8 @@ public class DashboardController {
             List<CollaboratorRow> collabRows = new ArrayList<>();
             int rank = 1;
             for (var info : collaborators) {
-                collabRows.add(new CollaboratorRow(rank++, info.name(), info.patents(), info.topClassifications()));
+                collabRows.add(new CollaboratorRow(rank++, info.name(), info.patents(),
+                        info.published(), info.allowed(), info.pending(), info.topClassifications()));
             }
             collaboratorTable.setItems(FXCollections.observableArrayList(collabRows));
 

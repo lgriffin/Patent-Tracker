@@ -93,7 +93,8 @@ public class InsightService {
                 patentAnalysisDao.insertOrUpdate(pa);
 
                 return new InsightResult(true, analysisType, cliResult.resultJson(),
-                        null, cliResult.durationMs());
+                        null, cliResult.durationMs(),
+                        cliResult.inputTokens(), cliResult.outputTokens(), cliResult.costUsd());
             } else {
                 return new InsightResult(false, analysisType, null,
                         cliResult.error(), cliResult.durationMs());
@@ -302,6 +303,8 @@ public class InsightService {
             List<List<PatentTechPair>> chunks = partition(pairs, batchSize);
             List<String> chunkResults = new ArrayList<>();
             long totalDuration = 0;
+            long totalInput = 0, totalOutput = 0;
+            double totalCost = 0.0;
 
             for (int i = 0; i < chunks.size(); i++) {
                 if (callback != null && callback.isCancelled()) {
@@ -321,6 +324,9 @@ public class InsightService {
                 ClaudeCliService.AnalysisResult chunkResult = claudeCliService.analyzeStreaming(
                         template, variables, idleTimeout, streamCallback);
                 totalDuration += chunkResult.durationMs();
+                totalInput += chunkResult.inputTokens();
+                totalOutput += chunkResult.outputTokens();
+                totalCost += chunkResult.costUsd();
 
                 if (chunkResult.success() && chunkResult.resultJson() != null) {
                     chunkResults.add(chunkResult.resultJson());
@@ -334,7 +340,8 @@ public class InsightService {
 
             if (chunkResults.size() == 1) {
                 ClaudeCliService.AnalysisResult singleResult = new ClaudeCliService.AnalysisResult(
-                        true, chunkResults.get(0), null, null, totalDuration);
+                        true, chunkResults.get(0), null, null, totalDuration,
+                        totalInput, totalOutput, totalCost);
                 return storeAndReturn(singleResult, allPatents, analysisType);
             }
 
@@ -351,10 +358,14 @@ public class InsightService {
             ClaudeCliService.AnalysisResult mergeResult = claudeCliService.analyzeStreaming(
                     mergeTemplate, mergeVariables, idleTimeout, streamCallback);
             totalDuration += mergeResult.durationMs();
+            totalInput += mergeResult.inputTokens();
+            totalOutput += mergeResult.outputTokens();
+            totalCost += mergeResult.costUsd();
 
             if (mergeResult.success() && mergeResult.resultJson() != null) {
                 ClaudeCliService.AnalysisResult finalResult = new ClaudeCliService.AnalysisResult(
-                        true, mergeResult.resultJson(), null, mergeResult.modelUsed(), totalDuration);
+                        true, mergeResult.resultJson(), null, mergeResult.modelUsed(), totalDuration,
+                        totalInput, totalOutput, totalCost);
                 return storeAndReturn(finalResult, allPatents, analysisType);
             }
 
@@ -362,7 +373,8 @@ public class InsightService {
             String fallbackJson = "{\"chunks\":" + chunkResults + ",\"merge_status\":\"failed\",\"merge_error\":"
                     + "\"" + (mergeResult.error() != null ? mergeResult.error().replace("\"", "'") : "unknown") + "\"}";
             ClaudeCliService.AnalysisResult fallbackResult = new ClaudeCliService.AnalysisResult(
-                    true, fallbackJson, null, null, totalDuration);
+                    true, fallbackJson, null, null, totalDuration,
+                    totalInput, totalOutput, totalCost);
             return storeAndReturn(fallbackResult, allPatents, analysisType);
 
         } catch (IOException e) {
@@ -383,7 +395,9 @@ public class InsightService {
             pa.setResultJson(cliResult.resultJson());
             pa.setModelUsed(cliResult.modelUsed());
             patentAnalysisDao.insertOrUpdate(pa);
-            return new InsightResult(true, analysisType, cliResult.resultJson(), null, cliResult.durationMs());
+            return new InsightResult(true, analysisType, cliResult.resultJson(), null,
+                    cliResult.durationMs(), cliResult.inputTokens(), cliResult.outputTokens(),
+                    cliResult.costUsd());
         } else {
             return new InsightResult(false, analysisType, null, cliResult.error(), cliResult.durationMs());
         }
@@ -458,6 +472,10 @@ public class InsightService {
 
     public PatentAnalysis getCachedAnalysis(int patentId, String type) throws SQLException {
         return patentAnalysisDao.findByPatentIdAndType(patentId, type);
+    }
+
+    public void deleteCachedAnalysis(int patentId, String type) throws SQLException {
+        patentAnalysisDao.deleteByPatentIdAndType(patentId, type);
     }
 
     public InsightStats getStats() {
@@ -691,8 +709,14 @@ public class InsightService {
 
     public record InsightResult(
             boolean success, String analysisType, String resultJson,
-            String error, long durationMs
-    ) {}
+            String error, long durationMs,
+            long inputTokens, long outputTokens, double costUsd
+    ) {
+        public InsightResult(boolean success, String analysisType, String resultJson,
+                             String error, long durationMs) {
+            this(success, analysisType, resultJson, error, durationMs, 0, 0, 0.0);
+        }
+    }
 
     public record InsightStats(
             int totalPatents, int withText, int withAnalysis,
