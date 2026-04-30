@@ -21,6 +21,7 @@ public class MainController {
     @FXML private Tab graphTab;
     @FXML private Tab dashboardTab;
     @FXML private Tab insightsTab;
+    @FXML private Tab miningTab;
     @FXML private Label statusLabel;
     @FXML private MenuItem importCsvMenuItem;
     @FXML private MenuItem syncAllMenuItem;
@@ -29,6 +30,7 @@ public class MainController {
     @FXML private GraphController graphController;
     @FXML private DashboardController dashboardController;
     @FXML private InsightsController insightsController;
+    @FXML private MiningController miningController;
 
     @FXML
     public void initialize() {
@@ -40,6 +42,8 @@ public class MainController {
                 dashboardController.refresh();
             } else if (newTab == insightsTab && insightsController != null) {
                 insightsController.refresh();
+            } else if (newTab == miningTab && miningController != null) {
+                miningController.refresh();
             }
         });
     }

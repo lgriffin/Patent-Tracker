@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.patenttracker.controller.MiningController"
+            fitToWidth="true">
+    <VBox spacing="15">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Patent Mining" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="exportButton" text="Export Results"
+                    onAction="#handleExport" styleClass="secondary-button" disable="true"/>
+        </HBox>
+
+        <Label text="Search external patents and generate new invention ideas informed by the competitive landscape."
+               wrapText="true" style="-fx-text-fill: #666;"/>
+
+        <Separator/>
+
+        <!-- Mode Selection -->
+        <HBox spacing="20" alignment="CENTER_LEFT">
+            <RadioButton fx:id="generalRadio" text="General Area Mining" selected="true">
+                <toggleGroup><ToggleGroup fx:id="modeGroup"/></toggleGroup>
+            </RadioButton>
+            <RadioButton fx:id="promptRadio" text="Invention Prompt Mining">
+                <toggleGroup><fx:reference source="modeGroup"/></toggleGroup>
+            </RadioButton>
+        </HBox>
+
+        <!-- General Area Section -->
+        <VBox fx:id="generalAreaBox" spacing="10">
+            <Label text="1. Select Area of Interest" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <ComboBox fx:id="areaComboBox" prefWidth="400" editable="true" promptText="Select or type an area..."/>
+                <Button fx:id="refreshAreasButton" text="Refresh Areas" onAction="#handleRefreshAreas"
+                        styleClass="secondary-button">
+                    <tooltip><Tooltip text="Extract areas of interest from existing portfolio analyses (Clustering, Whitespace, etc.)" wrapText="true" maxWidth="300"/></tooltip>
+                </Button>
+            </HBox>
+            <VBox fx:id="areaDetailBox" spacing="3" managed="false" visible="false">
+                <Label fx:id="areaKeywordsLabel" text="" wrapText="true"
+                       style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <Label fx:id="areaSourcesLabel" text="" wrapText="true"
+                       style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
+            </VBox>
+        </VBox>
+
+        <!-- Invention Prompt Section -->
+        <VBox fx:id="inventionPromptBox" spacing="10" managed="false" visible="false">
+            <Label text="1. Select Invention Prompt" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Choose an invention idea to validate against the competitive landscape."
+                       wrapText="true" style="-fx-text-fill: #666;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="refreshPromptsButton" text="Refresh" onAction="#handleRefreshPrompts"
+                        styleClass="secondary-button">
+                    <tooltip><Tooltip text="Reload invention prompts from the Insights tab analysis" wrapText="true" maxWidth="300"/></tooltip>
+                </Button>
+            </HBox>
+            <ListView fx:id="promptListView" prefHeight="200"/>
+            <VBox fx:id="promptDetailBox" spacing="5" managed="false" visible="false"
+                  style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-background-radius: 5;">
+                <Label fx:id="promptTitleLabel" text="" wrapText="true"
+                       style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+                <Label fx:id="promptDomainLabel" text="" wrapText="true"
+                       style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <Separator/>
+                <Label text="Problem:" style="-fx-font-weight: bold; -fx-font-size: 11px;"/>
+                <Label fx:id="promptProblemLabel" text="" wrapText="true"
+                       style="-fx-font-size: 11px;"/>
+                <Label text="Description:" style="-fx-font-weight: bold; -fx-font-size: 11px;"/>
+                <Label fx:id="promptDescriptionLabel" text="" wrapText="true"
+                       style="-fx-font-size: 11px;"/>
+                <Label fx:id="promptSourcePatentsLabel" text="" wrapText="true"
+                       style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
+            </VBox>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 2: Mine -->
+        <Label text="2. Search and Analyze" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="mineButton" text="Mine Patents" onAction="#handleMine"
+                    styleClass="primary-button" disable="true">
+                <tooltip><Tooltip text="Search Google Patents for recent US patents (last 2 years, max 100), then run Claude analysis" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
+            <Button fx:id="mineAllButton" text="Mine All Prompts" onAction="#handleMineAllPrompts"
+                    styleClass="primary-button" managed="false" visible="false">
+                <tooltip><Tooltip text="Run mining for ALL invention prompts sequentially" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
+                    styleClass="secondary-button" managed="false" visible="false"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <ProgressBar fx:id="progressBar" prefWidth="400" progress="0"/>
+            <Label fx:id="progressLabel" text="Ready"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Search Results (shown during/after current run) -->
+        <VBox fx:id="searchResultsBox" spacing="10" managed="false" visible="false">
+            <Label text="Search Results" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+            <HBox spacing="15" alignment="CENTER">
+                <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                    <Label fx:id="patentsFoundLabel" text="0" styleClass="stat-value"/>
+                    <Label text="Patents Found" styleClass="stat-label"/>
+                </VBox>
+                <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                    <Label fx:id="searchAreaLabel" text="-" styleClass="stat-value"
+                           style="-fx-font-size: 16px;"/>
+                    <Label text="Search Area" styleClass="stat-label"/>
+                </VBox>
+            </HBox>
+            <TitledPane text="External Patents" expanded="false">
+                <TableView fx:id="minedPatentsTable" prefHeight="250">
+                    <columns>
+                        <TableColumn fx:id="patentNumCol" text="Patent #" prefWidth="140"/>
+                        <TableColumn fx:id="titleCol" text="Title" prefWidth="400"/>
+                        <TableColumn fx:id="dateCol" text="Grant Date" prefWidth="100"/>
+                    </columns>
+                </TableView>
+            </TitledPane>
+            <Separator/>
+        </VBox>
+
+        <!-- Mining History -->
+        <VBox fx:id="historyBox" spacing="10">
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label text="Mining History" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="exportAllButton" text="Export All" onAction="#handleExportAll"
+                        styleClass="secondary-button" disable="true"/>
+            </HBox>
+            <Label fx:id="historyEmptyLabel" text="No mining results yet. Run a mining search above to get started."
+                   wrapText="true" style="-fx-text-fill: #999;"/>
+            <Accordion fx:id="historyAccordion"/>
+        </VBox>
+    </VBox>
+</ScrollPane>

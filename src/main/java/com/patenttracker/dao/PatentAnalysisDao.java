@@ -72,6 +72,20 @@ public class PatentAnalysisDao {
         return null;
     }
 
+    public List<PatentAnalysis> findByPatentIdAndTypePrefix(int patentId, String prefix) throws SQLException {
+        String sql = "SELECT * FROM patent_analysis WHERE patent_id = ? AND analysis_type LIKE ? ORDER BY analyzed_at DESC";
+        List<PatentAnalysis> results = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, patentId);
+            ps.setString(2, prefix + "%");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                results.add(mapRow(rs));
+            }
+        }
+        return results;
+    }
+
     public void deleteByPatentId(int patentId) throws SQLException {
         String sql = "DELETE FROM patent_analysis WHERE patent_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

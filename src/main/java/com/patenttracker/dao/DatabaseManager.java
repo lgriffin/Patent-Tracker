@@ -82,6 +82,9 @@ public class DatabaseManager {
         if (currentVersion < 4) {
             executeSqlResource("/db/V004__patent_text_and_analysis.sql");
         }
+        if (currentVersion < 5) {
+            executeSqlResource("/db/V005__mined_patents.sql");
+        }
     }
 
     private int getCurrentSchemaVersion() {

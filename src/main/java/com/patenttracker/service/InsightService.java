@@ -14,8 +14,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,6 +31,9 @@ import java.util.Map;
 import java.util.function.Function;
 
 public class InsightService {
+
+    private static final Path LOG_DIR = Path.of(System.getProperty("user.home"), ".patenttracker", "logs");
+    private static final DateTimeFormatter LOG_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final PatentDao patentDao;
     private final PatentTextDao patentTextDao;
@@ -306,8 +314,12 @@ public class InsightService {
             long totalInput = 0, totalOutput = 0;
             double totalCost = 0.0;
 
+            log(analysisType, "Starting chunked analysis: " + pairs.size() + " patents in "
+                    + chunks.size() + " chunks (batch size " + batchSize + ")");
+
             for (int i = 0; i < chunks.size(); i++) {
                 if (callback != null && callback.isCancelled()) {
+                    log(analysisType, "Cancelled by user during chunk " + (i + 1));
                     return new InsightResult(false, analysisType, null, "Analysis cancelled.", totalDuration);
                 }
 
@@ -321,6 +333,9 @@ public class InsightService {
                 variables.put("portfolio_summaries", summaries);
                 variables.putAll(extraVariables);
 
+                log(analysisType, "Chunk " + (i + 1) + "/" + chunks.size()
+                        + ": " + chunk.size() + " patents, prompt ~" + summaries.length() + " chars");
+
                 ClaudeCliService.AnalysisResult chunkResult = claudeCliService.analyzeStreaming(
                         template, variables, idleTimeout, streamCallback);
                 totalDuration += chunkResult.durationMs();
@@ -330,52 +345,124 @@ public class InsightService {
 
                 if (chunkResult.success() && chunkResult.resultJson() != null) {
                     chunkResults.add(chunkResult.resultJson());
+                    log(analysisType, "Chunk " + (i + 1) + " succeeded: "
+                            + chunkResult.resultJson().length() + " chars, "
+                            + chunkResult.durationMs() + "ms");
+                } else {
+                    log(analysisType, "Chunk " + (i + 1) + " FAILED: " + chunkResult.error());
                 }
             }
 
+            log(analysisType, "Chunk phase complete: " + chunkResults.size() + "/"
+                    + chunks.size() + " chunks succeeded");
+
             if (chunkResults.isEmpty()) {
+                log(analysisType, "All chunks failed — no results to merge");
                 return new InsightResult(false, analysisType, null,
                         "All chunks failed to produce results.", totalDuration);
             }
 
             if (chunkResults.size() == 1) {
+                log(analysisType, "Single chunk result — skipping merge");
                 ClaudeCliService.AnalysisResult singleResult = new ClaudeCliService.AnalysisResult(
                         true, chunkResults.get(0), null, null, totalDuration,
                         totalInput, totalOutput, totalCost);
                 return storeAndReturn(singleResult, allPatents, analysisType);
             }
 
-            // Merge phase
-            if (callback != null) callback.onMergeProgress();
-
+            // Hierarchical merge — merge in groups of 3 to keep prompt size manageable
             String mergeTemplateName = templateName + "-merge";
             String mergeTemplate = ClaudeCliService.loadPromptTemplate(mergeTemplateName);
+            int mergeIdleTimeout = idleTimeout * 3;
 
-            String combinedChunks = String.join("\n---CHUNK---\n", chunkResults);
-            Map<String, String> mergeVariables = new LinkedHashMap<>();
-            mergeVariables.put("chunk_results", combinedChunks);
+            List<String> toMerge = new ArrayList<>(chunkResults);
+            String bestResult = chunkResults.stream()
+                    .max(Comparator.comparingInt(String::length)).orElse(chunkResults.get(0));
+            int mergeRound = 0;
 
-            ClaudeCliService.AnalysisResult mergeResult = claudeCliService.analyzeStreaming(
-                    mergeTemplate, mergeVariables, idleTimeout, streamCallback);
-            totalDuration += mergeResult.durationMs();
-            totalInput += mergeResult.inputTokens();
-            totalOutput += mergeResult.outputTokens();
-            totalCost += mergeResult.costUsd();
+            log(analysisType, "Starting hierarchical merge of " + toMerge.size()
+                    + " chunks (idle timeout " + mergeIdleTimeout + "s)");
 
-            if (mergeResult.success() && mergeResult.resultJson() != null) {
-                ClaudeCliService.AnalysisResult finalResult = new ClaudeCliService.AnalysisResult(
-                        true, mergeResult.resultJson(), null, mergeResult.modelUsed(), totalDuration,
-                        totalInput, totalOutput, totalCost);
-                return storeAndReturn(finalResult, allPatents, analysisType);
+            while (toMerge.size() > 1) {
+                mergeRound++;
+                if (callback != null) callback.onMergeProgress();
+
+                List<List<String>> mergeGroups = partition(toMerge, 3);
+                List<String> mergedResults = new ArrayList<>();
+                boolean mergeFailedThisRound = false;
+
+                log(analysisType, "Merge round " + mergeRound + ": " + toMerge.size()
+                        + " items -> " + mergeGroups.size() + " groups");
+
+                for (int g = 0; g < mergeGroups.size(); g++) {
+                    if (callback != null && callback.isCancelled()) {
+                        log(analysisType, "Cancelled by user during merge round " + mergeRound);
+                        return new InsightResult(false, analysisType, null, "Analysis cancelled.", totalDuration);
+                    }
+
+                    List<String> group = mergeGroups.get(g);
+
+                    if (group.size() == 1) {
+                        mergedResults.add(group.get(0));
+                        continue;
+                    }
+
+                    if (callback != null) {
+                        callback.onStreamingStatus("Merging round " + mergeRound
+                                + " (" + (g + 1) + "/" + mergeGroups.size() + ")...");
+                    }
+
+                    String combinedChunks = String.join("\n---CHUNK---\n", group);
+                    int promptLen = mergeTemplate.length() + combinedChunks.length();
+                    log(analysisType, "Merge round " + mergeRound + " group " + (g + 1)
+                            + ": " + group.size() + " items, prompt ~" + promptLen + " chars");
+
+                    Map<String, String> mergeVariables = new LinkedHashMap<>();
+                    mergeVariables.put("chunk_results", combinedChunks);
+
+                    ClaudeCliService.AnalysisResult mergeResult = claudeCliService.analyzeStreaming(
+                            mergeTemplate, mergeVariables, mergeIdleTimeout, streamCallback);
+                    totalDuration += mergeResult.durationMs();
+                    totalInput += mergeResult.inputTokens();
+                    totalOutput += mergeResult.outputTokens();
+                    totalCost += mergeResult.costUsd();
+
+                    if (mergeResult.success() && mergeResult.resultJson() != null) {
+                        mergedResults.add(mergeResult.resultJson());
+                        bestResult = mergeResult.resultJson();
+                        log(analysisType, "Merge round " + mergeRound + " group " + (g + 1)
+                                + " succeeded: " + mergeResult.resultJson().length() + " chars, "
+                                + mergeResult.durationMs() + "ms");
+                    } else {
+                        log(analysisType, "Merge round " + mergeRound + " group " + (g + 1)
+                                + " FAILED: " + mergeResult.error());
+                        mergeFailedThisRound = true;
+                        for (String item : group) {
+                            mergedResults.add(item);
+                        }
+                    }
+                }
+
+                toMerge = mergedResults;
+
+                if (mergeFailedThisRound && toMerge.size() > 1) {
+                    log(analysisType, "Merge had failures in round " + mergeRound
+                            + ", falling back to best available result ("
+                            + bestResult.length() + " chars)");
+                    ClaudeCliService.AnalysisResult fallbackResult = new ClaudeCliService.AnalysisResult(
+                            true, bestResult, null, null, totalDuration,
+                            totalInput, totalOutput, totalCost);
+                    return storeAndReturn(fallbackResult, allPatents, analysisType);
+                }
             }
 
-            // Merge failed — return concatenated chunk results as fallback
-            String fallbackJson = "{\"chunks\":" + chunkResults + ",\"merge_status\":\"failed\",\"merge_error\":"
-                    + "\"" + (mergeResult.error() != null ? mergeResult.error().replace("\"", "'") : "unknown") + "\"}";
-            ClaudeCliService.AnalysisResult fallbackResult = new ClaudeCliService.AnalysisResult(
-                    true, fallbackJson, null, null, totalDuration,
+            log(analysisType, "Merge complete after " + mergeRound + " rounds, final result: "
+                    + toMerge.get(0).length() + " chars");
+
+            ClaudeCliService.AnalysisResult finalResult = new ClaudeCliService.AnalysisResult(
+                    true, toMerge.get(0), null, null, totalDuration,
                     totalInput, totalOutput, totalCost);
-            return storeAndReturn(fallbackResult, allPatents, analysisType);
+            return storeAndReturn(finalResult, allPatents, analysisType);
 
         } catch (IOException e) {
             return new InsightResult(false, analysisType, null,
@@ -705,6 +792,16 @@ public class InsightService {
 
     private String formatKey(String key) {
         return key.replace("_", " ").substring(0, 1).toUpperCase() + key.replace("_", " ").substring(1);
+    }
+
+    private static void log(String analysisType, String message) {
+        try {
+            Files.createDirectories(LOG_DIR);
+            Path logFile = LOG_DIR.resolve("insight-analysis.log");
+            try (PrintWriter pw = new PrintWriter(new FileWriter(logFile.toFile(), true))) {
+                pw.println(LocalDateTime.now().format(LOG_TS) + " [" + analysisType + "] " + message);
+            }
+        } catch (IOException ignored) {}
     }
 
     public record InsightResult(
