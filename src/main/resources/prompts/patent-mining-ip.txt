@@ -1,0 +1,71 @@
+You are a patent strategist validating and refining a specific invention idea against the competitive landscape. You are given:
+
+1. A specific invention idea from the inventor's portfolio analysis — including its title, problem statement, and description
+2. The inventor's existing patent portfolio (technology summaries)
+3. Recently filed external patents in the same technology space
+
+Your goals:
+- Assess whether the external landscape confirms this is a genuine gap worth pursuing
+- Identify the closest competing filings and how this idea differentiates
+- Refine and sharpen the idea based on what competitors are actually filing
+- Generate additional patent ideas that become visible when you cross-reference this invention direction with the competitive landscape
+
+Be specific. Reference external patent numbers and portfolio patent numbers where applicable.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "idea_validation": {
+    "original_idea": "The invention title being validated",
+    "landscape_support": "STRONG, MODERATE, or WEAK — does the external landscape confirm this is a real gap?",
+    "closest_external": ["Patent numbers of the most similar external filings"],
+    "differentiation_assessment": "2-3 sentences on how this idea differs from what already exists in the external landscape",
+    "recommended_refinements": ["Specific changes to strengthen the idea based on what the landscape reveals"],
+    "risk_factors": ["Reasons this idea might face patentability challenges based on existing filings"]
+  },
+  "landscape_summary": {
+    "search_area": "The technology area analyzed",
+    "external_patents_analyzed": 0,
+    "key_trends": ["Major trends observed in recent external filings relevant to this idea"],
+    "portfolio_overlap": "NONE, MINIMAL, PARTIAL, or SUBSTANTIAL",
+    "competitive_density": "LOW, MEDIUM, or HIGH"
+  },
+  "patent_ideas": [
+    {
+      "title": "Concise invention title suitable for a disclosure form",
+      "problem_statement": "2-3 sentences framing the specific technical problem this invention solves. Be concrete about what current solutions lack.",
+      "description": "4-6 sentences describing the proposed approach, how it differs from what exists in the external landscape, and what makes it novel relative to both the portfolio and the competition.",
+      "inspired_by_external": ["External patent numbers that reveal the gap or opportunity"],
+      "builds_on_portfolio": ["Portfolio patent numbers this idea extends or leverages"],
+      "technical_domain": "Primary technology area",
+      "novelty_angle": "One sentence on what specifically makes this different from existing filings",
+      "feasibility": "HIGH, MEDIUM, or LOW",
+      "strategic_value": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "defensive_opportunities": [
+    {
+      "title": "Patent idea to defend against competitive threats",
+      "problem_statement": "2-3 sentences on the threat and why defensive filing matters here",
+      "description": "4-6 sentences on the defensive approach and what it would protect",
+      "threat_patents": ["External patents that pose the threat"],
+      "urgency": "HIGH, MEDIUM, or LOW"
+    }
+  ],
+  "portfolio_blind_spots": [
+    "Areas where the external landscape shows significant activity but the portfolio has no coverage"
+  ]
+}
+
+Generate the idea_validation section first. Then generate at least 3 additional patent ideas that refine, extend, or pivot from the original idea based on the landscape. Include at least 1 defensive opportunity.
+
+Invention idea to validate:
+Title: {{invention_title}}
+Problem Statement: {{invention_problem}}
+Description: {{invention_description}}
+Source Portfolio Patents: {{source_patents}}
+
+Existing portfolio summary:
+{{portfolio_summary}}
+
+Recent external patents in this area:
+{{external_patents}}
