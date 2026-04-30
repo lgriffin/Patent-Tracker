@@ -259,7 +259,7 @@ public class PatentMiningService {
 
         if (!searchResult.success()) {
             return new MiningResult(false, searchLabel, null, searchResult.error(),
-                    System.currentTimeMillis() - startTime, 0, 0, 0.0, 0);
+                    System.currentTimeMillis() - startTime, 0, 0, 0.0, 0, searchResult.rateLimited());
         }
 
         if (callback != null && callback.isCancelled()) {
@@ -374,7 +374,7 @@ public class PatentMiningService {
 
         if (!searchResult.success()) {
             return new MiningResult(false, area.name(), null, searchResult.error(),
-                    System.currentTimeMillis() - startTime, 0, 0, 0.0, 0);
+                    System.currentTimeMillis() - startTime, 0, 0, 0.0, 0, searchResult.rateLimited());
         }
 
         if (callback != null && callback.isCancelled()) {
@@ -794,8 +794,15 @@ public class PatentMiningService {
     public record MiningResult(
             boolean success, String area, String resultJson, String error,
             long durationMs, long inputTokens, long outputTokens,
-            double costUsd, int externalPatentsFound
-    ) {}
+            double costUsd, int externalPatentsFound, boolean rateLimited
+    ) {
+        public MiningResult(boolean success, String area, String resultJson, String error,
+                            long durationMs, long inputTokens, long outputTokens,
+                            double costUsd, int externalPatentsFound) {
+            this(success, area, resultJson, error, durationMs, inputTokens, outputTokens,
+                    costUsd, externalPatentsFound, false);
+        }
+    }
 
     public record MiningHistoryItem(
             String analysisType, String area, String resultJson,
@@ -895,6 +902,13 @@ public class PatentMiningService {
 
             if (callback != null) {
                 callback.onPromptComplete(prompt.title(), result.success(), result.error());
+            }
+
+            if (result.rateLimited()) {
+                if (callback != null) {
+                    callback.onStatus("Stopping — Google Patents is rate limiting requests. Try again later.");
+                }
+                break;
             }
         }
 
