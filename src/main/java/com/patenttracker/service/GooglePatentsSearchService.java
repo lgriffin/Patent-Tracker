@@ -24,6 +24,8 @@ import java.util.Set;
 public class GooglePatentsSearchService {
 
     private static final int MAX_RESULTS = 100;
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_BASE_DELAY_MS = 5000;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -63,7 +65,25 @@ public class GooglePatentsSearchService {
                     .GET()
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = null;
+            for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (callback != null && callback.isCancelled()) {
+                    return new SearchResult(false, area, 0, List.of(), "Search cancelled.");
+                }
+                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 429 || response.statusCode() == 503) {
+                    if (attempt < MAX_RETRIES) {
+                        long delay = RETRY_BASE_DELAY_MS * (1L << attempt);
+                        if (callback != null) {
+                            callback.onStatus("Rate limited (HTTP " + response.statusCode()
+                                    + "), retrying in " + (delay / 1000) + "s...");
+                        }
+                        Thread.sleep(delay);
+                        continue;
+                    }
+                }
+                break;
+            }
 
             if (response.statusCode() != 200) {
                 return new SearchResult(false, area, 0, List.of(),

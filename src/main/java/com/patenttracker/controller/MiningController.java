@@ -463,12 +463,13 @@ public class MiningController {
                                 });
                             }
                             @Override
-                            public void onPromptComplete(String promptTitle, boolean success) {
+                            public void onPromptComplete(String promptTitle, boolean success, String error) {
                                 Platform.runLater(() -> {
                                     if (success) {
                                         progressLabel.setText("Completed: " + promptTitle);
                                     } else {
-                                        progressLabel.setText("Failed: " + promptTitle);
+                                        String reason = error != null ? " — " + error : "";
+                                        progressLabel.setText("Failed: " + promptTitle + reason);
                                     }
                                 });
                             }
