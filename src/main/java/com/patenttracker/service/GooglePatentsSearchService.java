@@ -86,8 +86,9 @@ public class GooglePatentsSearchService {
             }
 
             if (response.statusCode() != 200) {
+                boolean rl = response.statusCode() == 429 || response.statusCode() == 503;
                 return new SearchResult(false, area, 0, List.of(),
-                        "Google Patents returned HTTP " + response.statusCode());
+                        "Google Patents returned HTTP " + response.statusCode(), rl);
             }
 
             List<MinedPatent> patents = parseXhrResults(response.body(), area, query);
@@ -216,7 +217,13 @@ public class GooglePatentsSearchService {
     }
 
     public record SearchResult(boolean success, String area, int patentsFound,
-                                List<MinedPatent> patents, String error) {}
+                                List<MinedPatent> patents, String error,
+                                boolean rateLimited) {
+        public SearchResult(boolean success, String area, int patentsFound,
+                            List<MinedPatent> patents, String error) {
+            this(success, area, patentsFound, patents, error, false);
+        }
+    }
 
     public interface SearchProgressCallback {
         void onStatus(String status);
