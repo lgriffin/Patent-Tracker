@@ -809,7 +809,10 @@ public class PatentMiningService {
 
     public interface BulkMiningProgressCallback extends MiningProgressCallback {
         void onPromptProgress(int current, int total, String promptTitle);
-        void onPromptComplete(String promptTitle, boolean success);
+        default void onPromptComplete(String promptTitle, boolean success) {}
+        default void onPromptComplete(String promptTitle, boolean success, String error) {
+            onPromptComplete(promptTitle, success);
+        }
         default void onPromptSkipped(String promptTitle) {}
     }
 
@@ -844,6 +847,8 @@ public class PatentMiningService {
         return results;
     }
 
+    private static final long BULK_THROTTLE_MS = 10000;
+
     public List<MiningResult> mineAllInventionPrompts(BulkMiningProgressCallback callback) throws SQLException {
         List<InventionPromptItem> prompts = extractInventionPrompts();
         if (prompts.isEmpty()) {
@@ -854,6 +859,7 @@ public class PatentMiningService {
         List<MiningResult> results = new ArrayList<>();
         int total = prompts.size();
         int skipped = 0;
+        boolean firstMine = true;
 
         for (int i = 0; i < total; i++) {
             if (callback != null && callback.isCancelled()) break;
@@ -869,6 +875,17 @@ public class PatentMiningService {
                 continue;
             }
 
+            if (!firstMine) {
+                try {
+                    if (callback != null) callback.onStatus("Throttling to avoid rate limits...");
+                    Thread.sleep(BULK_THROTTLE_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            firstMine = false;
+
             if (callback != null) {
                 callback.onPromptProgress(i + 1 - skipped, total - skipped, prompt.title());
             }
@@ -877,7 +894,7 @@ public class PatentMiningService {
             results.add(result);
 
             if (callback != null) {
-                callback.onPromptComplete(prompt.title(), result.success());
+                callback.onPromptComplete(prompt.title(), result.success(), result.error());
             }
         }
 

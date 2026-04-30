@@ -80,9 +80,58 @@ Invention Prompts optionally enriches its output with Whitespace and Clustering 
 9. **Cross-Domain** — find novel domain combinations
 10. **Invention Prompts** — generate actionable R&D ideas from all the above
 
+## Large Portfolio Support (Chunked Map-Reduce)
+
+For portfolios with many patents, cross-patent analyses use a chunked map-reduce pattern:
+
+1. **Chunk**: Patents are split into batches (configurable batch size, default 30 patents per chunk)
+2. **Map**: Each chunk is analyzed independently by Claude, producing a partial result
+3. **Merge**: Partial results are hierarchically merged in groups of 3 until a single combined result remains
+4. **Fallback**: If any merge step fails, the system falls back to the largest individual chunk result rather than failing entirely
+
+This approach ensures that even portfolios with hundreds of patents can be analyzed without exceeding prompt size limits. The merge phase uses dedicated merge prompt templates (e.g., `whitespace-merge.txt`, `clustering-merge.txt`) that are optimized for combining partial results.
+
+### Merge Timeouts
+
+The merge phase uses an idle timeout of 3x the normal idle timeout to account for processing larger combined inputs. If merges are failing, try increasing the Idle Timeout in Settings.
+
+## Cost Tracking
+
+Each analysis reports cost and token usage:
+- **Duration**: Wall-clock time from start to finish
+- **Input Tokens**: Total tokens sent to Claude across all API calls
+- **Output Tokens**: Total tokens received from Claude
+- **Cost (USD)**: Aggregated cost across all sub-calls in the analysis
+
+Cost is displayed in the status bar after each analysis completes, formatted as: `$0.0234 (125.3K in / 45.2K out)`.
+
+For chunked analyses, cost includes all chunk analyses plus all merge steps.
+
+## Export Options
+
+Three export options are available on the Insights tab:
+
+1. **Export Cross-Patent Results** — Exports only cross-patent analyses (Whitespace, Clustering, etc.) to a single Markdown file
+2. **Export Full Report** — Exports everything: all per-patent analyses (Claims, Technology, Expansion, Prior Art) plus all cross-patent analyses
+3. **Individual Export** — Click the Export button on any individual analysis result in the accordion to export just that analysis
+
+## Analysis Status Indicators
+
+The Insights tab displays status counts for each analysis type:
+
+**Per-Patent Analyses** — Shows count of patents analyzed for each type (e.g., "Claims: 45", "Technology: 50")
+
+**Portfolio Analyses** — Shows completion status for each cross-patent analysis type. A count of "1" means the analysis has been run; "0" means it hasn't been run yet.
+
+These counts update automatically after each analysis completes and when the tab is refreshed.
+
 ## Configuration
 
-- **Claude CLI Path** — configurable in Settings (defaults to `claude` on PATH)
-- **Analysis Timeout** — configurable in Settings (default: 600 seconds). Increase for large portfolios (400+ patents). Cross-patent analyses aggregate all patent summaries into a single prompt, so larger portfolios need more processing time.
-- **Results** — all analysis results are cached in the database and displayed in the Insights tab accordion. Re-running an analysis overwrites the cached result.
-- **Export** — use the Export button to generate a Markdown report of all completed analyses.
+All settings are configurable in the Settings tab:
+
+- **Claude CLI Path** — Path to the Claude CLI binary. Defaults to `claude` on PATH. Set the full path if Claude is installed in a non-standard location.
+- **Analysis Timeout** — Maximum time for a single Claude CLI invocation (default: 600 seconds, range: 120-1200). Increase for large portfolios.
+- **Idle Timeout** — Maximum time with no output before killing a stalled analysis (default: 120 seconds, range: 30-600). The merge phase uses 3x this value.
+- **Batch Size** — Number of patents per chunk for cross-patent analyses (default: 30, range: 5-100). Reduce for very large portfolios if prompts hit size limits.
+- **Results** — All analysis results are cached in the database and displayed in the Insights tab accordion. Re-running an analysis overwrites the cached result.
+- **Logs** — Detailed analysis logs are written to `~/.patenttracker/logs/insight-analysis.log` for debugging.
