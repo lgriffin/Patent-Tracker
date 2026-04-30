@@ -531,6 +531,12 @@ public class InsightsController {
         try {
             PatentAnalysis analysis = insightService.getCachedAnalysis(patentId, type);
             if (analysis != null) {
+                String json = analysis.getResultJson();
+                if (json != null && json.contains("\"merge_status\":\"failed\"")) {
+                    insightService.deleteCachedAnalysis(patentId, type);
+                    return;
+                }
+
                 String timestamp = analysis.getAnalyzedAt() != null
                         ? analysis.getAnalyzedAt().format(DISPLAY_DATETIME) : "unknown";
                 String title = label + "  (" + timestamp + ")";

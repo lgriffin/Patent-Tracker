@@ -369,13 +369,11 @@ public class InsightService {
                 return storeAndReturn(finalResult, allPatents, analysisType);
             }
 
-            // Merge failed — return concatenated chunk results as fallback
-            String fallbackJson = "{\"chunks\":" + chunkResults + ",\"merge_status\":\"failed\",\"merge_error\":"
-                    + "\"" + (mergeResult.error() != null ? mergeResult.error().replace("\"", "'") : "unknown") + "\"}";
-            ClaudeCliService.AnalysisResult fallbackResult = new ClaudeCliService.AnalysisResult(
-                    true, fallbackJson, null, null, totalDuration,
-                    totalInput, totalOutput, totalCost);
-            return storeAndReturn(fallbackResult, allPatents, analysisType);
+            // Merge failed — return as error without persisting to DB
+            String mergeError = mergeResult.error() != null ? mergeResult.error() : "unknown merge error";
+            return new InsightResult(false, analysisType, null,
+                    "Merge failed: " + mergeError + " (" + chunkResults.size() + " chunks completed successfully)",
+                    totalDuration, totalInput, totalOutput, totalCost);
 
         } catch (IOException e) {
             return new InsightResult(false, analysisType, null,
