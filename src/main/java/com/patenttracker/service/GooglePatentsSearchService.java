@@ -24,8 +24,8 @@ import java.util.Set;
 public class GooglePatentsSearchService {
 
     private static final int MAX_RESULTS = 100;
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_BASE_DELAY_MS = 5000;
+    private static final int MAX_RETRIES = 4;
+    private static final long RETRY_BASE_DELAY_MS = 15000;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final ObjectMapper mapper = new ObjectMapper();

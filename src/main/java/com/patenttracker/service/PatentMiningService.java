@@ -847,7 +847,7 @@ public class PatentMiningService {
         return results;
     }
 
-    private static final long BULK_THROTTLE_MS = 3000;
+    private static final long BULK_THROTTLE_MS = 10000;
 
     public List<MiningResult> mineAllInventionPrompts(BulkMiningProgressCallback callback) throws SQLException {
         List<InventionPromptItem> prompts = extractInventionPrompts();
