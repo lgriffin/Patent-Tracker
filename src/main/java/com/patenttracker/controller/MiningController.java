@@ -446,6 +446,7 @@ public class MiningController {
 
         new Thread(() -> {
             try {
+                java.util.concurrent.atomic.AtomicInteger skippedCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 List<PatentMiningService.MiningResult> results =
                         miningService.mineAllInventionPrompts(new PatentMiningService.BulkMiningProgressCallback() {
                             @Override
@@ -471,16 +472,23 @@ public class MiningController {
                                     }
                                 });
                             }
+                            @Override
+                            public void onPromptSkipped(String promptTitle) {
+                                skippedCount.incrementAndGet();
+                                Platform.runLater(() -> progressLabel.setText("Skipped (already mined): " + promptTitle));
+                            }
                         });
 
                 long successCount = results.stream().filter(PatentMiningService.MiningResult::success).count();
                 double totalCost = results.stream().mapToDouble(PatentMiningService.MiningResult::costUsd).sum();
+                int skipped = skippedCount.get();
 
                 Platform.runLater(() -> {
                     progressBar.setProgress(1.0);
                     String costStr = totalCost > 0 ? String.format(" | Total cost: $%.4f", totalCost) : "";
+                    String skippedStr = skipped > 0 ? " | " + skipped + " already mined" : "";
                     progressLabel.setText("Bulk mining complete: " + successCount + "/" + results.size()
-                            + " succeeded" + costStr);
+                            + " succeeded" + skippedStr + costStr);
                     loadMiningHistory();
                     setRunning(false);
                 });

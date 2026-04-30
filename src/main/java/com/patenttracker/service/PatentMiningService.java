@@ -810,6 +810,7 @@ public class PatentMiningService {
     public interface BulkMiningProgressCallback extends MiningProgressCallback {
         void onPromptProgress(int current, int total, String promptTitle);
         void onPromptComplete(String promptTitle, boolean success);
+        default void onPromptSkipped(String promptTitle) {}
     }
 
     public List<MiningHistoryItem> getAllMiningResults() throws SQLException {
@@ -852,13 +853,24 @@ public class PatentMiningService {
 
         List<MiningResult> results = new ArrayList<>();
         int total = prompts.size();
+        int skipped = 0;
 
         for (int i = 0; i < total; i++) {
             if (callback != null && callback.isCancelled()) break;
 
             InventionPromptItem prompt = prompts.get(i);
+
+            PatentAnalysis cached = getCachedIPMiningResult(prompt.title());
+            if (cached != null) {
+                skipped++;
+                if (callback != null) {
+                    callback.onPromptSkipped(prompt.title());
+                }
+                continue;
+            }
+
             if (callback != null) {
-                callback.onPromptProgress(i + 1, total, prompt.title());
+                callback.onPromptProgress(i + 1 - skipped, total - skipped, prompt.title());
             }
 
             MiningResult result = mineInventionPrompt(prompt, callback);
