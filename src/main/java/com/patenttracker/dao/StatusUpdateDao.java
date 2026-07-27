@@ -13,36 +13,34 @@ public class StatusUpdateDao {
 
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final Connection conn;
+    private final ConnectionProvider connectionProvider;
 
     public StatusUpdateDao() {
-        this.conn = DatabaseManager.getInstance().getConnection();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
     }
 
-    public StatusUpdateDao(Connection conn) {
-        this.conn = conn;
+    public StatusUpdateDao(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
     public void insert(StatusUpdate su) throws SQLException {
         String sql = "INSERT INTO status_update (patent_id, field_name, previous_value, new_value, source) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, su.getPatentId());
             ps.setString(2, su.getFieldName());
             ps.setString(3, su.getPreviousValue());
             ps.setString(4, su.getNewValue());
             ps.setString(5, su.getSource());
             ps.executeUpdate();
-            ResultSet keys = ps.getGeneratedKeys();
-            if (keys.next()) {
-                su.setId(keys.getInt(1));
-            }
         }
     }
 
     public List<StatusUpdate> findByPatentId(int patentId) throws SQLException {
         String sql = "SELECT * FROM status_update WHERE patent_id = ? ORDER BY timestamp DESC";
         List<StatusUpdate> results = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, patentId);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -53,15 +51,15 @@ public class StatusUpdateDao {
     }
 
     private StatusUpdate mapRow(ResultSet rs) throws SQLException {
-        StatusUpdate su = new StatusUpdate();
-        su.setId(rs.getInt("id"));
-        su.setPatentId(rs.getInt("patent_id"));
-        su.setFieldName(rs.getString("field_name"));
-        su.setPreviousValue(rs.getString("previous_value"));
-        su.setNewValue(rs.getString("new_value"));
-        su.setSource(rs.getString("source"));
-        su.setTimestamp(parseDateTime(rs.getString("timestamp")));
-        return su;
+        return StatusUpdate.builder()
+                .id(rs.getInt("id"))
+                .patentId(rs.getInt("patent_id"))
+                .fieldName(rs.getString("field_name"))
+                .previousValue(rs.getString("previous_value"))
+                .newValue(rs.getString("new_value"))
+                .source(rs.getString("source"))
+                .timestamp(parseDateTime(rs.getString("timestamp")))
+                .build();
     }
 
     private LocalDateTime parseDateTime(String s) {

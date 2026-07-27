@@ -1,6 +1,5 @@
 package com.patenttracker.service;
 
-import com.patenttracker.controller.SettingsController;
 import com.patenttracker.dao.PatentDao;
 import com.patenttracker.model.Patent;
 
@@ -37,6 +36,14 @@ public class PdfDownloadService {
 
     public PdfDownloadService() {
         this.patentDao = new PatentDao();
+        this.httpClient = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
+    }
+
+    public PdfDownloadService(PatentDao patentDao) {
+        this.patentDao = patentDao;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(15))
@@ -167,8 +174,8 @@ public class PdfDownloadService {
                             false, null, "Downloaded file too small (" + fileSize + " bytes).", sourceType);
                 }
 
-                patent.setPdfPath(pdfPath);
-                patentDao.update(patent);
+                Patent updated = Patent.builder(patent).pdfPath(pdfPath).build();
+                patentDao.update(updated);
 
                 return new DownloadResult(patent.getFileNumber(), patent.getTitle(),
                         true, pdfPath, null, sourceType);
@@ -210,7 +217,7 @@ public class PdfDownloadService {
      * Bulk download PDFs for all eligible patents that don't already have cached PDFs.
      */
     public List<DownloadResult> downloadAll(DownloadProgressCallback callback) {
-        int delay = SettingsController.getRateLimitDelay();
+        int delay = ConfigService.getInstance().getRateLimitDelay();
         List<DownloadResult> results = new ArrayList<>();
 
         try {
@@ -287,8 +294,8 @@ public class PdfDownloadService {
                 try {
                     Files.deleteIfExists(Path.of(patent.getPdfPath()));
                 } catch (Exception ignored) {}
-                patent.setPdfPath(null);
-                patentDao.update(patent);
+                Patent cleared = Patent.builder(patent).pdfPath(null).build();
+                patentDao.update(cleared);
                 removed++;
             }
         }

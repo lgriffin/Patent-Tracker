@@ -3,13 +3,13 @@ package com.patenttracker.controller;
 import com.patenttracker.service.PdfDownloadService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PdfDownloadController {
 
@@ -31,7 +31,7 @@ public class PdfDownloadController {
     @FXML private Label summaryFailedLabel;
 
     private PatentListController parentController;
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private Task<?> currentTask;
 
     @FXML
     public void initialize() {
@@ -80,7 +80,6 @@ public class PdfDownloadController {
     }
 
     public void startBulkDownload() {
-        cancelled.set(false);
         cancelButton.setManaged(true);
         cancelButton.setVisible(true);
         progressBar.setProgress(0);
@@ -91,69 +90,101 @@ public class PdfDownloadController {
         progressLabel.setText("Starting download... (" + counts[3] + " eligible, "
                 + counts[2] + " already cached)");
 
-        // Pre-populate the skipped count
         int alreadyCached = counts[2];
 
-        new Thread(() -> {
-            List<PdfDownloadService.DownloadResult> results = pdfService.downloadAll(
-                    new PdfDownloadService.DownloadProgressCallback() {
-                @Override
-                public void onProgress(int current, int total, String title) {
-                    Platform.runLater(() -> {
-                        progressBar.setProgress((double) current / total);
-                        progressLabel.setText("Downloading " + current + " of " + total
+        var task = new Task<List<PdfDownloadService.DownloadResult>>() {
+            @Override
+            protected List<PdfDownloadService.DownloadResult> call() {
+                var self = this;
+                return pdfService.downloadAll(
+                        new PdfDownloadService.DownloadProgressCallback() {
+                    @Override
+                    public void onProgress(int current, int total, String title) {
+                        updateProgress(current, total);
+                        updateMessage("Downloading " + current + " of " + total
                                 + ": " + truncate(title, 40));
-                    });
-                }
+                    }
 
-                @Override
-                public void onResult(PdfDownloadService.DownloadResult result) {
-                    Platform.runLater(() -> {
-                        String source = result.sourceType() != null ? result.sourceType() : "";
-                        String resultText = result.success()
-                                ? "Downloaded" : result.error();
-                        resultsTable.getItems().add(new PdfRow(
-                                result.fileNumber(), result.title(), source, resultText));
-                        resultsTable.scrollTo(resultsTable.getItems().size() - 1);
-                    });
-                }
+                    @Override
+                    public void onResult(PdfDownloadService.DownloadResult result) {
+                        Platform.runLater(() -> {
+                            String source = result.sourceType() != null ? result.sourceType() : "";
+                            String resultText = result.success()
+                                    ? "Downloaded" : result.error();
+                            resultsTable.getItems().add(new PdfRow(
+                                    result.fileNumber(), result.title(), source, resultText));
+                            resultsTable.scrollTo(resultsTable.getItems().size() - 1);
+                        });
+                    }
 
-                @Override
-                public boolean isCancelled() {
-                    return cancelled.get();
-                }
-            });
+                    @Override
+                    public boolean isCancelled() {
+                        return self.isCancelled();
+                    }
+                });
+            }
+        };
 
-            Platform.runLater(() -> {
-                cancelButton.setManaged(false);
-                cancelButton.setVisible(false);
-                progressBar.setProgress(1.0);
-                progressLabel.setText("Download complete");
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
 
-                long downloaded = results.stream().filter(PdfDownloadService.DownloadResult::success).count();
-                long failed = results.stream().filter(r -> !r.success()).count();
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
 
-                summaryPanel.setManaged(true);
-                summaryPanel.setVisible(true);
-                summaryTotalLabel.setText(String.valueOf(results.size()));
-                summaryDownloadedLabel.setText(String.valueOf(downloaded));
-                summarySkippedLabel.setText(String.valueOf(alreadyCached));
-                summaryFailedLabel.setText(String.valueOf(failed));
+            List<PdfDownloadService.DownloadResult> results = task.getValue();
 
-                summaryLabel.setText(String.format("%d downloaded, %d already cached, %d failed",
-                        downloaded, alreadyCached, failed));
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            progressBar.setProgress(1.0);
+            progressLabel.setText("Download complete");
 
-                if (parentController != null) {
-                    parentController.refreshData();
-                }
-            });
-        }).start();
+            long downloaded = results.stream().filter(PdfDownloadService.DownloadResult::success).count();
+            long failed = results.stream().filter(r -> !r.success()).count();
+
+            summaryPanel.setManaged(true);
+            summaryPanel.setVisible(true);
+            summaryTotalLabel.setText(String.valueOf(results.size()));
+            summaryDownloadedLabel.setText(String.valueOf(downloaded));
+            summarySkippedLabel.setText(String.valueOf(alreadyCached));
+            summaryFailedLabel.setText(String.valueOf(failed));
+
+            summaryLabel.setText(String.format("%d downloaded, %d already cached, %d failed",
+                    downloaded, alreadyCached, failed));
+
+            if (parentController != null) {
+                parentController.refreshData();
+            }
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            Throwable ex = task.getException();
+            progressLabel.setText("Download failed: " + ex.getMessage());
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            progressLabel.setText("Download cancelled.");
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
     private void handleCancel() {
-        cancelled.set(true);
-        progressLabel.setText("Cancelling...");
+        if (currentTask != null) {
+            currentTask.cancel();
+        }
     }
 
     @FXML

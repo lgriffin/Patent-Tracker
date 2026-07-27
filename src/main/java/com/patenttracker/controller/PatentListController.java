@@ -11,6 +11,7 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
@@ -80,9 +81,9 @@ public class PatentListController {
                 setAlignment(Pos.CENTER);
                 switch (item) {
                     case "cached" -> {
-                        setText("\u2713");  // checkmark
+                        setText("✓");  // checkmark
                         setStyle("-fx-text-fill: #28a745; -fx-font-weight: bold; -fx-cursor: hand;");
-                        setTooltip(new Tooltip("PDF cached \u2014 click to open"));
+                        setTooltip(new Tooltip("PDF cached — click to open"));
                         setOnMouseClicked(e -> {
                             Patent p = getTableView().getItems().get(getIndex());
                             try {
@@ -93,22 +94,28 @@ public class PatentListController {
                         });
                     }
                     case "available" -> {
-                        setText("\u2193");  // down arrow
+                        setText("↓");  // down arrow
                         setStyle("-fx-text-fill: #0078d4; -fx-cursor: hand;");
                         setTooltip(new Tooltip("Click to download PDF"));
                         setOnMouseClicked(e -> {
                             Patent p = getTableView().getItems().get(getIndex());
-                            setText("\u231B");  // hourglass
+                            setText("⌛");  // hourglass
                             setStyle("-fx-text-fill: #fd7e14;");
                             setOnMouseClicked(null);
-                            new Thread(() -> {
-                                PdfDownloadService.DownloadResult result = pdfDownloadService.downloadPdf(p);
-                                Platform.runLater(() -> patentTable.refresh());
-                            }).start();
+                            var downloadTask = new Task<Void>() {
+                                @Override
+                                protected Void call() {
+                                    pdfDownloadService.downloadPdf(p);
+                                    return null;
+                                }
+                            };
+                            downloadTask.setOnSucceeded(ev -> patentTable.refresh());
+                            downloadTask.setOnFailed(ev -> patentTable.refresh());
+                            Thread.ofVirtual().start(downloadTask);
                         });
                     }
                     default -> {
-                        setText("\u2014");  // em dash
+                        setText("—");  // em dash
                         setStyle("-fx-text-fill: #999;");
                         setTooltip(new Tooltip("No PDF available"));
                         setOnMouseClicked(null);

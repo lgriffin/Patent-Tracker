@@ -3,13 +3,13 @@ package com.patenttracker.controller;
 import com.patenttracker.service.UsptoSyncService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SyncController {
 
@@ -36,7 +36,7 @@ public class SyncController {
     @FXML private Label summaryFieldsLabel;
 
     private PatentListController parentController;
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private Task<?> currentTask;
 
     @FXML
     public void initialize() {
@@ -89,100 +89,128 @@ public class SyncController {
     }
 
     public void startBulkSync() {
-        cancelled.set(false);
         cancelButton.setManaged(true);
         cancelButton.setVisible(true);
         progressBar.setProgress(0);
         progressLabel.setText("Starting sync...");
         resultsTable.getItems().clear();
 
-        new Thread(() -> {
-            UsptoSyncService syncService = new UsptoSyncService();
-            List<UsptoSyncService.SyncResult> results = syncService.syncAll(new UsptoSyncService.SyncProgressCallback() {
-                @Override
-                public void onProgress(int current, int total, String patentTitle) {
-                    Platform.runLater(() -> {
-                        progressBar.setProgress((double) current / total);
-                        progressLabel.setText("Syncing " + current + " of " + total + ": " + truncate(patentTitle, 40));
-                    });
-                }
+        var task = new Task<List<UsptoSyncService.SyncResult>>() {
+            @Override
+            protected List<UsptoSyncService.SyncResult> call() {
+                var self = this;
+                UsptoSyncService syncService = new UsptoSyncService();
+                return syncService.syncAll(new UsptoSyncService.SyncProgressCallback() {
+                    @Override
+                    public void onProgress(int current, int total, String patentTitle) {
+                        updateProgress(current, total);
+                        updateMessage("Syncing " + current + " of " + total + ": " + truncate(patentTitle, 40));
+                    }
 
-                @Override
-                public void onResult(UsptoSyncService.SyncResult result) {
-                    Platform.runLater(() -> {
-                        String statusChange = formatStatusChange(result);
-                        String resultText = formatResultText(result);
-                        resultsTable.getItems().add(new SyncRow(
-                                result.appNumber(), result.title(), statusChange, resultText));
-                        // Auto-scroll to the latest row
-                        resultsTable.scrollTo(resultsTable.getItems().size() - 1);
-                    });
-                }
+                    @Override
+                    public void onResult(UsptoSyncService.SyncResult result) {
+                        Platform.runLater(() -> {
+                            String statusChange = formatStatusChange(result);
+                            String resultText = formatResultText(result);
+                            resultsTable.getItems().add(new SyncRow(
+                                    result.appNumber(), result.title(), statusChange, resultText));
+                            resultsTable.scrollTo(resultsTable.getItems().size() - 1);
+                        });
+                    }
 
-                @Override
-                public boolean isCancelled() {
-                    return cancelled.get();
-                }
-            });
+                    @Override
+                    public boolean isCancelled() {
+                        return self.isCancelled();
+                    }
+                });
+            }
+        };
 
-            Platform.runLater(() -> {
-                cancelButton.setManaged(false);
-                cancelButton.setVisible(false);
-                progressBar.setProgress(1.0);
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
 
-                long updatedCount = results.stream().filter(UsptoSyncService.SyncResult::hasChanges).count();
-                long errorCount = results.stream().filter(r -> r.error() != null).count();
-                long noChange = results.size() - updatedCount - errorCount;
-                long progressed = results.stream()
-                        .filter(r -> r.movement() == UsptoSyncService.StatusMovement.PROGRESSED).count();
-                long regressed = results.stream()
-                        .filter(r -> r.movement() == UsptoSyncService.StatusMovement.REGRESSED).count();
-                long terminal = results.stream()
-                        .filter(r -> r.movement() == UsptoSyncService.StatusMovement.TERMINAL).count();
-                long lateral = results.stream()
-                        .filter(r -> r.movement() == UsptoSyncService.StatusMovement.LATERAL).count();
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
 
-                progressLabel.setText("Sync complete");
+            List<UsptoSyncService.SyncResult> results = task.getValue();
 
-                // Populate summary panel
-                summaryPanel.setManaged(true);
-                summaryPanel.setVisible(true);
-                summaryTotalLabel.setText(String.valueOf(results.size()));
-                summaryUpdatedLabel.setText(String.valueOf(updatedCount));
-                summaryUnchangedLabel.setText(String.valueOf(noChange));
-                summaryErrorsLabel.setText(String.valueOf(errorCount));
-                summaryProgressedLabel.setText(String.valueOf(progressed));
-                summaryRegressedLabel.setText(String.valueOf(regressed));
-                summaryTerminalLabel.setText(String.valueOf(terminal));
-                summaryLateralLabel.setText(String.valueOf(lateral));
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            progressBar.setProgress(1.0);
 
-                // Count changed fields across all results
-                Map<String, Integer> fieldChanges = new LinkedHashMap<>();
-                for (var result : results) {
-                    if (result.summary() != null) {
-                        for (String change : result.summary().split("\n")) {
-                            String fieldName = change.split(":")[0].trim();
-                            fieldChanges.merge(fieldName, 1, Integer::sum);
-                        }
+            long updatedCount = results.stream().filter(UsptoSyncService.SyncResult::hasChanges).count();
+            long errorCount = results.stream().filter(r -> r.error() != null).count();
+            long noChange = results.size() - updatedCount - errorCount;
+            long progressed = results.stream()
+                    .filter(r -> r.movement() == UsptoSyncService.StatusMovement.PROGRESSED).count();
+            long regressed = results.stream()
+                    .filter(r -> r.movement() == UsptoSyncService.StatusMovement.REGRESSED).count();
+            long terminal = results.stream()
+                    .filter(r -> r.movement() == UsptoSyncService.StatusMovement.TERMINAL).count();
+            long lateral = results.stream()
+                    .filter(r -> r.movement() == UsptoSyncService.StatusMovement.LATERAL).count();
+
+            progressLabel.setText("Sync complete");
+
+            summaryPanel.setManaged(true);
+            summaryPanel.setVisible(true);
+            summaryTotalLabel.setText(String.valueOf(results.size()));
+            summaryUpdatedLabel.setText(String.valueOf(updatedCount));
+            summaryUnchangedLabel.setText(String.valueOf(noChange));
+            summaryErrorsLabel.setText(String.valueOf(errorCount));
+            summaryProgressedLabel.setText(String.valueOf(progressed));
+            summaryRegressedLabel.setText(String.valueOf(regressed));
+            summaryTerminalLabel.setText(String.valueOf(terminal));
+            summaryLateralLabel.setText(String.valueOf(lateral));
+
+            Map<String, Integer> fieldChanges = new LinkedHashMap<>();
+            for (var result : results) {
+                if (result.summary() != null) {
+                    for (String change : result.summary().split("\n")) {
+                        String fieldName = change.split(":")[0].trim();
+                        fieldChanges.merge(fieldName, 1, Integer::sum);
                     }
                 }
-                if (fieldChanges.isEmpty()) {
-                    summaryFieldsLabel.setText("No fields changed");
-                } else {
-                    StringBuilder fields = new StringBuilder();
-                    fieldChanges.forEach((field, count) ->
-                            fields.append(field).append(": ").append(count).append("  "));
-                    summaryFieldsLabel.setText(fields.toString().trim());
-                }
+            }
+            if (fieldChanges.isEmpty()) {
+                summaryFieldsLabel.setText("No fields changed");
+            } else {
+                StringBuilder fields = new StringBuilder();
+                fieldChanges.forEach((field, count) ->
+                        fields.append(field).append(": ").append(count).append("  "));
+                summaryFieldsLabel.setText(fields.toString().trim());
+            }
 
-                summaryLabel.setText(String.format("%d updated, %d unchanged, %d errors",
-                        updatedCount, noChange, errorCount));
+            summaryLabel.setText(String.format("%d updated, %d unchanged, %d errors",
+                    updatedCount, noChange, errorCount));
 
-                if (parentController != null) {
-                    parentController.refreshData();
-                }
-            });
-        }).start();
+            if (parentController != null) {
+                parentController.refreshData();
+            }
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            Throwable ex = task.getException();
+            progressLabel.setText("Sync failed: " + ex.getMessage());
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            cancelButton.setManaged(false);
+            cancelButton.setVisible(false);
+            progressLabel.setText("Sync cancelled.");
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     private String formatStatusChange(UsptoSyncService.SyncResult result) {
@@ -207,8 +235,9 @@ public class SyncController {
 
     @FXML
     private void handleCancel() {
-        cancelled.set(true);
-        progressLabel.setText("Cancelling...");
+        if (currentTask != null) {
+            currentTask.cancel();
+        }
     }
 
     @FXML

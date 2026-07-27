@@ -7,7 +7,6 @@ import com.patenttracker.dao.StatusUpdateDao;
 import com.patenttracker.model.Patent;
 import com.patenttracker.model.StatusUpdate;
 
-import com.patenttracker.controller.SettingsController;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -38,6 +37,14 @@ public class UsptoSyncService {
                 .build();
     }
 
+    public UsptoSyncService(PatentDao patentDao, StatusUpdateDao statusUpdateDao) {
+        this.patentDao = patentDao;
+        this.statusUpdateDao = statusUpdateDao;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
+    }
+
     /**
      * Status lifecycle phases ordered by progression.
      * Used to determine if a status change is a progression or regression.
@@ -63,7 +70,7 @@ public class UsptoSyncService {
         String cleanAppNumber = appNumber.replace("/", "");
 
         try {
-            String apiKey = SettingsController.getApiKey();
+            String apiKey = ConfigService.getInstance().getApiKey();
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(ODP_BASE_URL + cleanAppNumber))
                     .header("Accept", "application/json")
@@ -98,7 +105,7 @@ public class UsptoSyncService {
     }
 
     public List<SyncResult> syncAll(SyncProgressCallback progressCallback) {
-        int delay = SettingsController.getRateLimitDelay();
+        int delay = ConfigService.getInstance().getRateLimitDelay();
         List<SyncResult> results = new ArrayList<>();
 
         try {
@@ -161,6 +168,7 @@ public class UsptoSyncService {
             String oldStatus = patent.getPtoStatus();
             String newStatus = null;
             StatusMovement movement = StatusMovement.NONE;
+            Patent.Builder b = Patent.builder(patent);
 
             // Check status - store raw USPTO applicationStatusDescriptionText
             String odpStatus = getTextField(appMeta, "applicationStatusDescriptionText");
@@ -168,7 +176,7 @@ public class UsptoSyncService {
                 recordChange(patent.getId(), "ptoStatus", patent.getPtoStatus(), odpStatus);
                 newStatus = odpStatus;
                 movement = classifyMovement(oldStatus, newStatus);
-                patent.setPtoStatus(odpStatus);
+                b.ptoStatus(odpStatus);
                 changes.add("Status: " + oldStatus + " -> " + odpStatus + " (" + movementLabel(movement) + ")");
             }
 
@@ -177,7 +185,7 @@ public class UsptoSyncService {
             if (odpPatentNumber != null) {
                 if (patent.getPatentNumber() == null || !patent.getPatentNumber().equals(odpPatentNumber)) {
                     recordChange(patent.getId(), "patentNumber", patent.getPatentNumber(), odpPatentNumber);
-                    patent.setPatentNumber(odpPatentNumber);
+                    b.patentNumber(odpPatentNumber);
                     changes.add("Patent #: " + odpPatentNumber);
                 }
             }
@@ -189,7 +197,7 @@ public class UsptoSyncService {
                 if (grantDate != null && !grantDate.equals(patent.getIssueGrantDate())) {
                     String oldVal = patent.getIssueGrantDate() != null ? patent.getIssueGrantDate().toString() : null;
                     recordChange(patent.getId(), "issueGrantDate", oldVal, grantDate.toString());
-                    patent.setIssueGrantDate(grantDate);
+                    b.issueGrantDate(grantDate);
                     changes.add("Issue Date: " + grantDate);
                 }
             }
@@ -201,7 +209,7 @@ public class UsptoSyncService {
                 if (pubDate != null && !pubDate.equals(patent.getPublicationDate())) {
                     String oldVal = patent.getPublicationDate() != null ? patent.getPublicationDate().toString() : null;
                     recordChange(patent.getId(), "publicationDate", oldVal, pubDate.toString());
-                    patent.setPublicationDate(pubDate);
+                    b.publicationDate(pubDate);
                     changes.add("Publication Date: " + pubDate);
                 }
             }
@@ -211,13 +219,13 @@ public class UsptoSyncService {
             if (odpPubNumber != null) {
                 if (patent.getPublicationNumber() == null || !patent.getPublicationNumber().equals(odpPubNumber)) {
                     recordChange(patent.getId(), "publicationNumber", patent.getPublicationNumber(), odpPubNumber);
-                    patent.setPublicationNumber(odpPubNumber);
+                    b.publicationNumber(odpPubNumber);
                     changes.add("Publication #: " + odpPubNumber);
                 }
             }
 
             if (!changes.isEmpty()) {
-                patentDao.update(patent);
+                patentDao.update(b.build());
                 return new SyncResult(true, String.join("\n", changes), null,
                         appNumber, title, oldStatus, newStatus, movement);
             }
@@ -298,7 +306,7 @@ public class UsptoSyncService {
 
     private void recordChange(int patentId, String field, String oldVal, String newVal) {
         try {
-            statusUpdateDao.insert(new StatusUpdate(patentId, field, oldVal, newVal, "USPTO_SYNC"));
+            statusUpdateDao.insert(StatusUpdate.create(patentId, field, oldVal, newVal, "USPTO_SYNC"));
         } catch (SQLException e) {
             // Non-critical
         }

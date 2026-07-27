@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.FlowPane;
@@ -154,19 +155,20 @@ public class PatentDetailController {
         if (patent == null) return;
 
         List<String> changes = new ArrayList<>();
+        Patent.Builder b = Patent.builder(patent);
 
         // Track and apply each field change
         String newTitle = titleField.getText();
         if (!Objects.equals(newTitle, patent.getTitle())) {
             recordChange("title", patent.getTitle(), newTitle);
-            patent.setTitle(newTitle);
+            b.title(newTitle);
             changes.add("title");
         }
 
         String newStatus = statusCombo.getValue();
         if (!Objects.equals(newStatus, patent.getPtoStatus())) {
             recordChange("ptoStatus", patent.getPtoStatus(), newStatus);
-            patent.setPtoStatus(newStatus);
+            b.ptoStatus(newStatus);
             changes.add("status");
         }
 
@@ -175,21 +177,21 @@ public class PatentDetailController {
             recordChange("filingDate",
                 patent.getFilingDate() != null ? patent.getFilingDate().toString() : null,
                 newFilingDate != null ? newFilingDate.toString() : null);
-            patent.setFilingDate(newFilingDate);
+            b.filingDate(newFilingDate);
             changes.add("filingDate");
         }
 
         String newAppNumber = emptyToNull(appNumberField.getText());
         if (!Objects.equals(newAppNumber, patent.getApplicationNumber())) {
             recordChange("applicationNumber", patent.getApplicationNumber(), newAppNumber);
-            patent.setApplicationNumber(newAppNumber);
+            b.applicationNumber(newAppNumber);
             changes.add("applicationNumber");
         }
 
         String newPatentNumber = emptyToNull(patentNumberField.getText());
         if (!Objects.equals(newPatentNumber, patent.getPatentNumber())) {
             recordChange("patentNumber", patent.getPatentNumber(), newPatentNumber);
-            patent.setPatentNumber(newPatentNumber);
+            b.patentNumber(newPatentNumber);
             changes.add("patentNumber");
         }
 
@@ -198,14 +200,14 @@ public class PatentDetailController {
             recordChange("issueGrantDate",
                 patent.getIssueGrantDate() != null ? patent.getIssueGrantDate().toString() : null,
                 newIssueDate != null ? newIssueDate.toString() : null);
-            patent.setIssueGrantDate(newIssueDate);
+            b.issueGrantDate(newIssueDate);
             changes.add("issueGrantDate");
         }
 
         String newPubNumber = emptyToNull(pubNumberField.getText());
         if (!Objects.equals(newPubNumber, patent.getPublicationNumber())) {
             recordChange("publicationNumber", patent.getPublicationNumber(), newPubNumber);
-            patent.setPublicationNumber(newPubNumber);
+            b.publicationNumber(newPubNumber);
             changes.add("publicationNumber");
         }
 
@@ -214,21 +216,21 @@ public class PatentDetailController {
             recordChange("publicationDate",
                 patent.getPublicationDate() != null ? patent.getPublicationDate().toString() : null,
                 newPubDate != null ? newPubDate.toString() : null);
-            patent.setPublicationDate(newPubDate);
+            b.publicationDate(newPubDate);
             changes.add("publicationDate");
         }
 
         String newSuffix = suffixField.getText();
         if (!Objects.equals(newSuffix, patent.getSuffix())) {
             recordChange("suffix", patent.getSuffix(), newSuffix);
-            patent.setSuffix(newSuffix);
+            b.suffix(newSuffix);
             changes.add("suffix");
         }
 
         String newClassification = emptyToNull(classificationCombo.getValue());
         if (!Objects.equals(newClassification, patent.getClassification())) {
             recordChange("classification", patent.getClassification(), newClassification);
-            patent.setClassification(newClassification);
+            b.classification(newClassification);
             changes.add("classification");
         }
 
@@ -239,6 +241,7 @@ public class PatentDetailController {
         }
 
         try {
+            patent = b.build();
             patentDao.update(patent);
             saveStatusLabel.setStyle("-fx-text-fill: green;");
             saveStatusLabel.setText("Saved " + changes.size() + " change(s).");
@@ -252,7 +255,7 @@ public class PatentDetailController {
 
     private void recordChange(String field, String oldVal, String newVal) {
         try {
-            statusUpdateDao.insert(new StatusUpdate(patent.getId(), field, oldVal, newVal, "MANUAL_EDIT"));
+            statusUpdateDao.insert(StatusUpdate.create(patent.getId(), field, oldVal, newVal, "MANUAL_EDIT"));
         } catch (SQLException e) {
             // Non-critical
         }
@@ -320,7 +323,7 @@ public class PatentDetailController {
             if (patent.getParentFileNumber() != null) {
                 Patent parent = patentDao.findByFileNumber(patent.getParentFileNumber());
                 if (parent != null) {
-                    Hyperlink link = new Hyperlink("Parent: " + parent.getFileNumber() + " \u2014 " + parent.getTitle());
+                    Hyperlink link = new Hyperlink("Parent: " + parent.getFileNumber() + " — " + parent.getTitle());
                     link.setOnAction(e -> openRelatedPatent(parent));
                     relatedBox.getChildren().add(link);
                     hasRelated = true;
@@ -328,7 +331,7 @@ public class PatentDetailController {
             }
 
             for (Patent child : children) {
-                Hyperlink link = new Hyperlink(child.getSuffix() + ": " + child.getFileNumber() + " \u2014 " + child.getTitle());
+                Hyperlink link = new Hyperlink(child.getSuffix() + ": " + child.getFileNumber() + " — " + child.getTitle());
                 link.setOnAction(e -> openRelatedPatent(child));
                 relatedBox.getChildren().add(link);
                 hasRelated = true;
@@ -388,32 +391,37 @@ public class PatentDetailController {
         saveStatusLabel.setStyle("-fx-text-fill: blue;");
         saveStatusLabel.setText("Syncing with USPTO...");
 
-        new Thread(() -> {
-            try {
+        var task = new Task<UsptoSyncService.SyncResult>() {
+            @Override
+            protected UsptoSyncService.SyncResult call() throws Exception {
                 UsptoSyncService syncService = new UsptoSyncService();
-                UsptoSyncService.SyncResult result = syncService.syncPatent(patent);
-
-                Platform.runLater(() -> {
-                    if (result.hasChanges()) {
-                        saveStatusLabel.setStyle("-fx-text-fill: green;");
-                        saveStatusLabel.setText("USPTO sync: " + result.summary().replace("\n", ", "));
-                        displayPatent();
-                        if (parentController != null) parentController.refreshData();
-                    } else if (result.error() != null) {
-                        saveStatusLabel.setStyle("-fx-text-fill: red;");
-                        saveStatusLabel.setText("Sync error: " + result.error());
-                    } else {
-                        saveStatusLabel.setStyle("-fx-text-fill: gray;");
-                        saveStatusLabel.setText("Already up to date with USPTO.");
-                    }
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    saveStatusLabel.setStyle("-fx-text-fill: red;");
-                    saveStatusLabel.setText("Sync failed: " + e.getMessage());
-                });
+                return syncService.syncPatent(patent);
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            UsptoSyncService.SyncResult result = task.getValue();
+            if (result.hasChanges()) {
+                saveStatusLabel.setStyle("-fx-text-fill: green;");
+                saveStatusLabel.setText("USPTO sync: " + result.summary().replace("\n", ", "));
+                displayPatent();
+                if (parentController != null) parentController.refreshData();
+            } else if (result.error() != null) {
+                saveStatusLabel.setStyle("-fx-text-fill: red;");
+                saveStatusLabel.setText("Sync error: " + result.error());
+            } else {
+                saveStatusLabel.setStyle("-fx-text-fill: gray;");
+                saveStatusLabel.setText("Already up to date with USPTO.");
+            }
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            saveStatusLabel.setStyle("-fx-text-fill: red;");
+            saveStatusLabel.setText("Sync failed: " + ex.getMessage());
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     private void updatePdfStatus() {
@@ -448,7 +456,7 @@ public class PatentDetailController {
 
         if (!pdfDownloadService.canDownload(patent)) {
             saveStatusLabel.setStyle("-fx-text-fill: red;");
-            saveStatusLabel.setText("No patent or publication number \u2014 cannot download PDF.");
+            saveStatusLabel.setText("No patent or publication number — cannot download PDF.");
             return;
         }
 
@@ -456,21 +464,35 @@ public class PatentDetailController {
         saveStatusLabel.setStyle("-fx-text-fill: blue;");
         saveStatusLabel.setText("Downloading PDF...");
 
-        new Thread(() -> {
-            PdfDownloadService.DownloadResult result = pdfDownloadService.downloadPdf(patent);
-            Platform.runLater(() -> {
-                pdfButton.setDisable(false);
-                if (result.success()) {
-                    saveStatusLabel.setStyle("-fx-text-fill: green;");
-                    saveStatusLabel.setText("PDF downloaded and cached (" + result.sourceType() + ").");
-                    updatePdfStatus();
-                    if (parentController != null) parentController.refreshData();
-                } else {
-                    saveStatusLabel.setStyle("-fx-text-fill: red;");
-                    saveStatusLabel.setText(result.error());
-                }
-            });
-        }).start();
+        var task = new Task<PdfDownloadService.DownloadResult>() {
+            @Override
+            protected PdfDownloadService.DownloadResult call() {
+                return pdfDownloadService.downloadPdf(patent);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            PdfDownloadService.DownloadResult result = task.getValue();
+            pdfButton.setDisable(false);
+            if (result.success()) {
+                saveStatusLabel.setStyle("-fx-text-fill: green;");
+                saveStatusLabel.setText("PDF downloaded and cached (" + result.sourceType() + ").");
+                updatePdfStatus();
+                if (parentController != null) parentController.refreshData();
+            } else {
+                saveStatusLabel.setStyle("-fx-text-fill: red;");
+                saveStatusLabel.setText(result.error());
+            }
+        });
+
+        task.setOnFailed(event -> {
+            pdfButton.setDisable(false);
+            Throwable ex = task.getException();
+            saveStatusLabel.setStyle("-fx-text-fill: red;");
+            saveStatusLabel.setText("PDF download failed: " + ex.getMessage());
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -575,27 +597,41 @@ public class PatentDetailController {
         analysisStatusLabel.setManaged(true);
         analysisStatusLabel.setVisible(true);
 
-        new Thread(() -> {
-            InsightService.InsightResult result = switch (selectedType) {
-                case "Claim Decomposition" -> insightService.analyzeClaims(patent);
-                case "Technology Extraction" -> insightService.analyzeTechnology(patent);
-                case "Expansion Vectors" -> insightService.analyzeExpansion(patent);
-                case "Prior Art Proximity" -> insightService.analyzePriorArt(patent);
-                default -> new InsightService.InsightResult(false, selectedType, null, "Unknown type", 0);
-            };
+        var task = new Task<InsightService.InsightResult>() {
+            @Override
+            protected InsightService.InsightResult call() {
+                return switch (selectedType) {
+                    case "Claim Decomposition" -> insightService.analyzeClaims(patent);
+                    case "Technology Extraction" -> insightService.analyzeTechnology(patent);
+                    case "Expansion Vectors" -> insightService.analyzeExpansion(patent);
+                    case "Prior Art Proximity" -> insightService.analyzePriorArt(patent);
+                    default -> new InsightService.InsightResult(false, selectedType, null, "Unknown type", 0);
+                };
+            }
+        };
 
-            Platform.runLater(() -> {
-                analyzeButton.setDisable(false);
-                if (result.success()) {
-                    analysisStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
-                    analysisStatusLabel.setText(selectedType + " completed in " + (result.durationMs() / 1000) + "s.");
-                } else {
-                    analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
-                    analysisStatusLabel.setText("Analysis failed: " + result.error());
-                }
-                loadAnalyses();
-            });
-        }).start();
+        task.setOnSucceeded(event -> {
+            InsightService.InsightResult result = task.getValue();
+            analyzeButton.setDisable(false);
+            if (result.success()) {
+                analysisStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+                analysisStatusLabel.setText(selectedType + " completed in " + (result.durationMs() / 1000) + "s.");
+            } else {
+                analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+                analysisStatusLabel.setText("Analysis failed: " + result.error());
+            }
+            loadAnalyses();
+        });
+
+        task.setOnFailed(event -> {
+            analyzeButton.setDisable(false);
+            Throwable ex = task.getException();
+            analysisStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            analysisStatusLabel.setText("Analysis failed: " + ex.getMessage());
+            loadAnalyses();
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     private void openRelatedPatent(Patent related) {

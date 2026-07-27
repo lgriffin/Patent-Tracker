@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -27,7 +28,7 @@ import java.io.FileWriter;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MiningController {
 
@@ -79,7 +80,7 @@ public class MiningController {
     @FXML private Accordion historyAccordion;
 
     private final PatentMiningService miningService = new PatentMiningService();
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private Task<?> currentTask;
     private List<AreaOfInterest> areas = new ArrayList<>();
     private List<InventionPromptItem> inventionPrompts = new ArrayList<>();
     private String currentMiningArea;
@@ -188,26 +189,32 @@ public class MiningController {
         refreshAreasButton.setDisable(true);
         progressLabel.setText("Extracting areas of interest from portfolio analyses...");
 
-        new Thread(() -> {
-            try {
-                List<AreaOfInterest> extracted = miningService.extractAreasOfInterest();
-                Platform.runLater(() -> {
-                    areas = extracted;
-                    areaComboBox.setItems(FXCollections.observableArrayList(areas));
-                    refreshAreasButton.setDisable(false);
-                    if (areas.isEmpty()) {
-                        progressLabel.setText("No areas found. Run portfolio analyses on the Insights tab first.");
-                    } else {
-                        progressLabel.setText("Found " + areas.size() + " areas of interest.");
-                    }
-                });
-            } catch (SQLException e) {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Error loading areas: " + e.getMessage());
-                    refreshAreasButton.setDisable(false);
-                });
+        var task = new Task<List<AreaOfInterest>>() {
+            @Override
+            protected List<AreaOfInterest> call() throws Exception {
+                return miningService.extractAreasOfInterest();
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            List<AreaOfInterest> extracted = task.getValue();
+            areas = extracted;
+            areaComboBox.setItems(FXCollections.observableArrayList(areas));
+            refreshAreasButton.setDisable(false);
+            if (areas.isEmpty()) {
+                progressLabel.setText("No areas found. Run portfolio analyses on the Insights tab first.");
+            } else {
+                progressLabel.setText("Found " + areas.size() + " areas of interest.");
+            }
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            progressLabel.setText("Error loading areas: " + ex.getMessage());
+            refreshAreasButton.setDisable(false);
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -215,26 +222,32 @@ public class MiningController {
         refreshPromptsButton.setDisable(true);
         progressLabel.setText("Loading invention prompts...");
 
-        new Thread(() -> {
-            try {
-                List<InventionPromptItem> extracted = miningService.extractInventionPrompts();
-                Platform.runLater(() -> {
-                    inventionPrompts = extracted;
-                    promptListView.setItems(FXCollections.observableArrayList(inventionPrompts));
-                    refreshPromptsButton.setDisable(false);
-                    if (inventionPrompts.isEmpty()) {
-                        progressLabel.setText("No invention prompts found. Run 'Invention Prompts' analysis on the Insights tab first.");
-                    } else {
-                        progressLabel.setText("Found " + inventionPrompts.size() + " invention prompts.");
-                    }
-                });
-            } catch (SQLException e) {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Error loading prompts: " + e.getMessage());
-                    refreshPromptsButton.setDisable(false);
-                });
+        var task = new Task<List<InventionPromptItem>>() {
+            @Override
+            protected List<InventionPromptItem> call() throws Exception {
+                return miningService.extractInventionPrompts();
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            List<InventionPromptItem> extracted = task.getValue();
+            inventionPrompts = extracted;
+            promptListView.setItems(FXCollections.observableArrayList(inventionPrompts));
+            refreshPromptsButton.setDisable(false);
+            if (inventionPrompts.isEmpty()) {
+                progressLabel.setText("No invention prompts found. Run 'Invention Prompts' analysis on the Insights tab first.");
+            } else {
+                progressLabel.setText("Found " + inventionPrompts.size() + " invention prompts.");
+            }
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            progressLabel.setText("Error loading prompts: " + ex.getMessage());
+            refreshPromptsButton.setDisable(false);
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -263,40 +276,65 @@ public class MiningController {
             return;
         }
 
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
         currentMiningArea = selected.name();
         currentModeIsIP = false;
 
         AreaOfInterest finalArea = selected;
-        new Thread(() -> {
-            PatentMiningService.MiningResult result = miningService.mineArea(finalArea,
-                    new PatentMiningService.MiningProgressCallback() {
-                        @Override
-                        public void onStatus(String status) {
-                            Platform.runLater(() -> progressLabel.setText(status));
-                        }
-                        @Override
-                        public boolean isCancelled() { return cancelled.get(); }
-                    });
+        var task = new Task<PatentMiningService.MiningResult>() {
+            @Override
+            protected PatentMiningService.MiningResult call() {
+                var self = this;
+                return miningService.mineArea(finalArea,
+                        new PatentMiningService.MiningProgressCallback() {
+                            @Override
+                            public void onStatus(String status) {
+                                updateMessage(status);
+                            }
+                            @Override
+                            public boolean isCancelled() { return self.isCancelled(); }
+                        });
+            }
+        };
 
-            Platform.runLater(() -> {
-                if (result.success()) {
-                    progressLabel.setText("Mining complete in " + (result.durationMs() / 1000) + "s."
-                            + formatCost(result));
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressLabel.textProperty().unbind();
+            PatentMiningService.MiningResult result = task.getValue();
+            if (result.success()) {
+                progressLabel.setText("Mining complete in " + (result.durationMs() / 1000) + "s."
+                        + formatCost(result));
+                displaySearchResults(result.area(), result.externalPatentsFound());
+                loadMiningHistory();
+            } else {
+                progressLabel.setText("Mining failed: " + result.error());
+                if (result.externalPatentsFound() > 0) {
                     displaySearchResults(result.area(), result.externalPatentsFound());
-                    loadMiningHistory();
-                } else {
-                    progressLabel.setText("Mining failed: " + result.error());
-                    if (result.externalPatentsFound() > 0) {
-                        displaySearchResults(result.area(), result.externalPatentsFound());
-                    }
                 }
-                progressBar.setProgress(result.success() ? 1.0 : 0);
-                setRunning(false);
-            });
-        }).start();
+            }
+            progressBar.setProgress(result.success() ? 1.0 : 0);
+            setRunning(false);
+        });
+
+        task.setOnFailed(event -> {
+            progressLabel.textProperty().unbind();
+            Throwable ex = task.getException();
+            progressLabel.setText("Mining failed: " + ex.getMessage());
+            progressBar.setProgress(0);
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Mining cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     private void handleMineInventionPrompt() {
@@ -311,45 +349,74 @@ public class MiningController {
             return;
         }
 
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
         currentMiningArea = selected.title();
         currentModeIsIP = true;
 
-        new Thread(() -> {
-            PatentMiningService.MiningResult result = miningService.mineInventionPrompt(selected,
-                    new PatentMiningService.MiningProgressCallback() {
-                        @Override
-                        public void onStatus(String status) {
-                            Platform.runLater(() -> progressLabel.setText(status));
-                        }
-                        @Override
-                        public boolean isCancelled() { return cancelled.get(); }
-                    });
+        var task = new Task<PatentMiningService.MiningResult>() {
+            @Override
+            protected PatentMiningService.MiningResult call() {
+                var self = this;
+                return miningService.mineInventionPrompt(selected,
+                        new PatentMiningService.MiningProgressCallback() {
+                            @Override
+                            public void onStatus(String status) {
+                                updateMessage(status);
+                            }
+                            @Override
+                            public boolean isCancelled() { return self.isCancelled(); }
+                        });
+            }
+        };
 
-            Platform.runLater(() -> {
-                if (result.success()) {
-                    progressLabel.setText("Mining complete in " + (result.durationMs() / 1000) + "s."
-                            + formatCost(result));
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressLabel.textProperty().unbind();
+            PatentMiningService.MiningResult result = task.getValue();
+            if (result.success()) {
+                progressLabel.setText("Mining complete in " + (result.durationMs() / 1000) + "s."
+                        + formatCost(result));
+                displaySearchResults(result.area(), result.externalPatentsFound());
+                loadMiningHistory();
+            } else {
+                progressLabel.setText("Mining failed: " + result.error());
+                if (result.externalPatentsFound() > 0) {
                     displaySearchResults(result.area(), result.externalPatentsFound());
-                    loadMiningHistory();
-                } else {
-                    progressLabel.setText("Mining failed: " + result.error());
-                    if (result.externalPatentsFound() > 0) {
-                        displaySearchResults(result.area(), result.externalPatentsFound());
-                    }
                 }
-                progressBar.setProgress(result.success() ? 1.0 : 0);
-                setRunning(false);
-            });
-        }).start();
+            }
+            progressBar.setProgress(result.success() ? 1.0 : 0);
+            setRunning(false);
+        });
+
+        task.setOnFailed(event -> {
+            progressLabel.textProperty().unbind();
+            Throwable ex = task.getException();
+            progressLabel.setText("Mining failed: " + ex.getMessage());
+            progressBar.setProgress(0);
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Mining cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
     private void handleCancel() {
-        cancelled.set(true);
-        progressLabel.setText("Cancelling...");
+        if (currentTask != null) {
+            currentTask.cancel();
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressLabel.setText("Cancelling...");
+        }
     }
 
     @FXML
@@ -370,21 +437,26 @@ public class MiningController {
 
         if (file != null) {
             progressLabel.setText("Exporting...");
-            new Thread(() -> {
-                try {
+
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = currentModeIsIP
                             ? miningService.exportIPMiningMarkdown(currentMiningArea)
                             : miningService.exportMiningMarkdown(currentMiningArea);
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+
+            Thread.ofVirtual().start(task);
         }
     }
 
@@ -439,68 +511,87 @@ public class MiningController {
             return;
         }
 
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(0);
         currentModeIsIP = true;
 
-        new Thread(() -> {
-            try {
-                java.util.concurrent.atomic.AtomicInteger skippedCount = new java.util.concurrent.atomic.AtomicInteger(0);
-                List<PatentMiningService.MiningResult> results =
-                        miningService.mineAllInventionPrompts(new PatentMiningService.BulkMiningProgressCallback() {
+        AtomicInteger skippedCount = new AtomicInteger(0);
+
+        var task = new Task<List<PatentMiningService.MiningResult>>() {
+            @Override
+            protected List<PatentMiningService.MiningResult> call() throws Exception {
+                var self = this;
+                return miningService.mineAllInventionPrompts(
+                        new PatentMiningService.BulkMiningProgressCallback() {
                             @Override
                             public void onStatus(String status) {
-                                Platform.runLater(() -> progressLabel.setText(status));
+                                updateMessage(status);
                             }
                             @Override
-                            public boolean isCancelled() { return cancelled.get(); }
+                            public boolean isCancelled() { return self.isCancelled(); }
                             @Override
                             public void onPromptProgress(int current, int total, String promptTitle) {
-                                Platform.runLater(() -> {
-                                    progressBar.setProgress((double) (current - 1) / total);
-                                    progressLabel.setText("Mining " + current + "/" + total + ": " + promptTitle);
-                                });
+                                updateProgress(current - 1, total);
+                                updateMessage("Mining " + current + "/" + total + ": " + promptTitle);
                             }
                             @Override
                             public void onPromptComplete(String promptTitle, boolean success, String error) {
-                                Platform.runLater(() -> {
-                                    if (success) {
-                                        progressLabel.setText("Completed: " + promptTitle);
-                                    } else {
-                                        String reason = error != null ? " — " + error : "";
-                                        progressLabel.setText("Failed: " + promptTitle + reason);
-                                    }
-                                });
+                                if (success) {
+                                    updateMessage("Completed: " + promptTitle);
+                                } else {
+                                    String reason = error != null ? " — " + error : "";
+                                    updateMessage("Failed: " + promptTitle + reason);
+                                }
                             }
                             @Override
                             public void onPromptSkipped(String promptTitle) {
                                 skippedCount.incrementAndGet();
-                                Platform.runLater(() -> progressLabel.setText("Skipped (already mined): " + promptTitle));
+                                updateMessage("Skipped (already mined): " + promptTitle);
                             }
                         });
-
-                long successCount = results.stream().filter(PatentMiningService.MiningResult::success).count();
-                double totalCost = results.stream().mapToDouble(PatentMiningService.MiningResult::costUsd).sum();
-                int skipped = skippedCount.get();
-
-                Platform.runLater(() -> {
-                    progressBar.setProgress(1.0);
-                    String costStr = totalCost > 0 ? String.format(" | Total cost: $%.4f", totalCost) : "";
-                    String skippedStr = skipped > 0 ? " | " + skipped + " already mined" : "";
-                    progressLabel.setText("Bulk mining complete: " + successCount + "/" + results.size()
-                            + " succeeded" + skippedStr + costStr);
-                    loadMiningHistory();
-                    setRunning(false);
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Bulk mining error: " + e.getMessage());
-                    progressBar.setProgress(0);
-                    setRunning(false);
-                });
             }
-        }).start();
+        };
+
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+
+            List<PatentMiningService.MiningResult> results = task.getValue();
+            long successCount = results.stream().filter(PatentMiningService.MiningResult::success).count();
+            double totalCost = results.stream().mapToDouble(PatentMiningService.MiningResult::costUsd).sum();
+            int skipped = skippedCount.get();
+
+            progressBar.setProgress(1.0);
+            String costStr = totalCost > 0 ? String.format(" | Total cost: $%.4f", totalCost) : "";
+            String skippedStr = skipped > 0 ? " | " + skipped + " already mined" : "";
+            progressLabel.setText("Bulk mining complete: " + successCount + "/" + results.size()
+                    + " succeeded" + skippedStr + costStr);
+            loadMiningHistory();
+            setRunning(false);
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            Throwable ex = task.getException();
+            progressLabel.setText("Bulk mining error: " + ex.getMessage());
+            progressBar.setProgress(0);
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Bulk mining cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -516,19 +607,24 @@ public class MiningController {
 
         if (file != null) {
             progressLabel.setText("Exporting all results...");
-            new Thread(() -> {
-                try {
+
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = miningService.exportAllMiningMarkdown();
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported all results to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported all results to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+
+            Thread.ofVirtual().start(task);
         }
     }
 
@@ -727,7 +823,7 @@ public class MiningController {
             exportButton.setDisable(history.isEmpty());
 
             if (!history.isEmpty()) {
-                var first = history.get(0);
+                var first = history.getFirst();
                 currentMiningArea = first.area();
                 currentModeIsIP = first.isIPMining();
             }
@@ -804,7 +900,7 @@ public class MiningController {
             }
 
             if (!historyAccordion.getPanes().isEmpty()) {
-                historyAccordion.setExpandedPane(historyAccordion.getPanes().get(0));
+                historyAccordion.setExpandedPane(historyAccordion.getPanes().getFirst());
             }
 
         } catch (SQLException e) {
@@ -828,21 +924,26 @@ public class MiningController {
 
         if (file != null) {
             progressLabel.setText("Exporting...");
-            new Thread(() -> {
-                try {
+
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = isIP
                             ? miningService.exportIPMiningMarkdown(area)
                             : miningService.exportMiningMarkdown(area);
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+
+            Thread.ofVirtual().start(task);
         }
     }
 

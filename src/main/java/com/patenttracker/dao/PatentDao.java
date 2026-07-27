@@ -9,20 +9,21 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public class PatentDao {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final Connection conn;
+    private final ConnectionProvider connectionProvider;
 
     public PatentDao() {
-        this.conn = DatabaseManager.getInstance().getConnection();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
     }
 
-    public PatentDao(Connection conn) {
-        this.conn = conn;
+    public PatentDao(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
     public int insert(Patent p) throws SQLException {
@@ -33,7 +34,8 @@ public class PatentDao {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getFileNumber());
             ps.setString(2, p.getTitle());
             ps.setString(3, dateToStr(p.getFilingDate()));
@@ -55,9 +57,7 @@ public class PatentDao {
 
             ResultSet keys = ps.getGeneratedKeys();
             if (keys.next()) {
-                int id = keys.getInt(1);
-                p.setId(id);
-                return id;
+                return keys.getInt(1);
             }
         }
         return -1;
@@ -72,7 +72,8 @@ public class PatentDao {
             WHERE id=?
             """;
 
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, p.getTitle());
             ps.setString(2, dateToStr(p.getFilingDate()));
             ps.setString(3, p.getApplicationNumber());
@@ -94,7 +95,8 @@ public class PatentDao {
         String sql = "SELECT p.*, i.full_name as primary_inventor_name " +
                      "FROM patent p LEFT JOIN patent_inventor pi ON p.id = pi.patent_id AND pi.role = 'PRIMARY' " +
                      "LEFT JOIN inventor i ON pi.inventor_id = i.id WHERE p.id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -108,7 +110,8 @@ public class PatentDao {
         String sql = "SELECT p.*, i.full_name as primary_inventor_name " +
                      "FROM patent p LEFT JOIN patent_inventor pi ON p.id = pi.patent_id AND pi.role = 'PRIMARY' " +
                      "LEFT JOIN inventor i ON pi.inventor_id = i.id WHERE p.file_number = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, fileNumber);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -141,7 +144,6 @@ public class PatentDao {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<>();
 
-        // Base query with subqueries for display fields
         sql.append("SELECT DISTINCT p.*, ");
         sql.append("(SELECT i1.full_name FROM patent_inventor pi1 JOIN inventor i1 ON pi1.inventor_id = i1.id ");
         sql.append(" WHERE pi1.patent_id = p.id AND pi1.role = 'PRIMARY' LIMIT 1) as primary_inventor_name, ");
@@ -153,19 +155,16 @@ public class PatentDao {
         sql.append(" WHERE pt.patent_id = p.id) as tag_names ");
         sql.append("FROM patent p ");
 
-        // Join for inventor filter (any role)
         if (inventorId != null) {
             sql.append("JOIN patent_inventor pi_filter ON p.id = pi_filter.patent_id AND pi_filter.inventor_id = ? ");
             params.add(inventorId);
         }
 
-        // Join for tag filter
         if (tagId != null) {
             sql.append("JOIN patent_tag pt ON p.id = pt.patent_id AND pt.tag_id = ? ");
             params.add(tagId);
         }
 
-        // FTS title search
         if (titleQuery != null && !titleQuery.isBlank()) {
             sql.append("JOIN patent_fts fts ON p.id = fts.rowid ");
         }
@@ -174,7 +173,6 @@ public class PatentDao {
 
         if (titleQuery != null && !titleQuery.isBlank()) {
             sql.append("AND patent_fts MATCH ? ");
-            // Add wildcards for prefix matching
             params.add(titleQuery.trim() + "*");
         }
 
@@ -200,11 +198,12 @@ public class PatentDao {
 
         sql.append("ORDER BY p.filing_date DESC");
 
-        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             for (int idx = 0; idx < params.size(); idx++) {
                 Object param = params.get(idx);
-                if (param instanceof Integer) {
-                    ps.setInt(idx + 1, (Integer) param);
+                if (param instanceof Integer i) {
+                    ps.setInt(idx + 1, i);
                 } else {
                     ps.setString(idx + 1, param.toString());
                 }
@@ -217,14 +216,16 @@ public class PatentDao {
         String sql = "SELECT p.*, i.full_name as primary_inventor_name " +
                      "FROM patent p LEFT JOIN patent_inventor pi ON p.id = pi.patent_id AND pi.role = 'PRIMARY' " +
                      "LEFT JOIN inventor i ON pi.inventor_id = i.id WHERE p.parent_file_number = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, parentFileNumber);
             return mapResults(ps.executeQuery());
         }
     }
 
     public int count() throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM patent");
             return rs.next() ? rs.getInt(1) : 0;
         }
@@ -232,7 +233,8 @@ public class PatentDao {
 
     public List<String> getDistinctStatuses() throws SQLException {
         List<String> statuses = new ArrayList<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT DISTINCT pto_status FROM patent ORDER BY pto_status");
             while (rs.next()) {
                 String s = rs.getString(1);
@@ -244,7 +246,8 @@ public class PatentDao {
 
     public List<String> getDistinctClassifications() throws SQLException {
         List<String> results = new ArrayList<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(
                 "SELECT DISTINCT classification FROM patent WHERE classification IS NOT NULL AND classification != '' ORDER BY classification"
             );
@@ -257,7 +260,8 @@ public class PatentDao {
 
     public List<Integer> getDistinctFilingYears() throws SQLException {
         List<Integer> years = new ArrayList<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(
                 "SELECT DISTINCT CAST(substr(filing_date,1,4) AS INTEGER) as yr FROM patent " +
                 "WHERE filing_date IS NOT NULL ORDER BY yr"
@@ -270,7 +274,8 @@ public class PatentDao {
     }
 
     private List<Patent> executeQuery(String sql) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             return mapResults(stmt.executeQuery(sql));
         }
     }
@@ -284,37 +289,38 @@ public class PatentDao {
     }
 
     private Patent mapRow(ResultSet rs) throws SQLException {
-        Patent p = new Patent();
-        p.setId(rs.getInt("id"));
-        p.setFileNumber(rs.getString("file_number"));
-        p.setTitle(rs.getString("title"));
-        p.setFilingDate(parseDate(rs.getString("filing_date")));
-        p.setApplicationNumber(rs.getString("application_number"));
-        p.setPublicationDate(parseDate(rs.getString("publication_date")));
-        p.setPublicationNumber(rs.getString("publication_number"));
-        p.setIssueGrantDate(parseDate(rs.getString("issue_grant_date")));
-        p.setPatentNumber(rs.getString("patent_number"));
-        p.setPtoStatus(rs.getString("pto_status"));
-        p.setSuffix(rs.getString("suffix"));
-        p.setClassification(rs.getString("classification"));
-        p.setParentFileNumber(rs.getString("parent_file_number"));
+        Patent.Builder b = Patent.builder()
+                .id(rs.getInt("id"))
+                .fileNumber(rs.getString("file_number"))
+                .title(rs.getString("title"))
+                .filingDate(parseDate(rs.getString("filing_date")))
+                .applicationNumber(rs.getString("application_number"))
+                .publicationDate(parseDate(rs.getString("publication_date")))
+                .publicationNumber(rs.getString("publication_number"))
+                .issueGrantDate(parseDate(rs.getString("issue_grant_date")))
+                .patentNumber(rs.getString("patent_number"))
+                .ptoStatus(rs.getString("pto_status"))
+                .suffix(rs.getString("suffix"))
+                .classification(rs.getString("classification"))
+                .parentFileNumber(rs.getString("parent_file_number"))
+                .pdfPath(rs.getString("pdf_path"))
+                .createdAt(parseDateTime(rs.getString("created_at")))
+                .updatedAt(parseDateTime(rs.getString("updated_at")));
+
         int csvRow = rs.getInt("csv_row_number");
-        p.setCsvRowNumber(rs.wasNull() ? null : csvRow);
-        p.setPdfPath(rs.getString("pdf_path"));
-        p.setCreatedAt(parseDateTime(rs.getString("created_at")));
-        p.setUpdatedAt(parseDateTime(rs.getString("updated_at")));
+        b.csvRowNumber(rs.wasNull() ? null : csvRow);
 
-        trySetString(rs, "primary_inventor_name", p::setPrimaryInventorName);
-        trySetString(rs, "secondary_inventor_name", p::setSecondaryInventorName);
-        trySetString(rs, "additional_inventor_names", p::setAdditionalInventorNames);
-        trySetString(rs, "tag_names", p::setTagNames);
+        trySetString(rs, "primary_inventor_name", b::primaryInventorName);
+        trySetString(rs, "secondary_inventor_name", b::secondaryInventorName);
+        trySetString(rs, "additional_inventor_names", b::additionalInventorNames);
+        trySetString(rs, "tag_names", b::tagNames);
 
-        return p;
+        return b.build();
     }
 
-    private void trySetString(ResultSet rs, String column, java.util.function.Consumer<String> setter) {
+    private void trySetString(ResultSet rs, String column, Function<String, Patent.Builder> setter) {
         try {
-            setter.accept(rs.getString(column));
+            setter.apply(rs.getString(column));
         } catch (SQLException e) {
             // Column may not exist in all queries
         }
@@ -327,7 +333,6 @@ public class PatentDao {
     public static LocalDate parseDate(String s) {
         if (s == null || s.isBlank()) return null;
         try {
-            // Handle "2019-08-13 0:00:00" format
             String cleaned = s.trim().split("\\s")[0];
             return LocalDate.parse(cleaned, DATE_FMT);
         } catch (DateTimeParseException e) {

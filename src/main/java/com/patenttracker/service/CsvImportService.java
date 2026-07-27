@@ -66,8 +66,9 @@ public class CsvImportService {
                     Patent existing = patentDao.findByFileNumber(patent.getFileNumber());
                     if (existing != null) {
                         // Update existing record if any fields have changed
-                        if (mergeChanges(existing, patent)) {
-                            patentDao.update(existing);
+                        Patent merged = mergeChanges(existing, patent);
+                        if (merged != null) {
+                            patentDao.update(merged);
                             updated++;
                         } else {
                             unchanged++;
@@ -75,10 +76,10 @@ public class CsvImportService {
                         continue;
                     }
 
-                    patentDao.insert(patent);
+                    int patentId = patentDao.insert(patent);
 
                     // Process inventors
-                    processInventors(patent.getId(), line);
+                    processInventors(patentId, line);
 
                     imported++;
                 } catch (Exception e) {
@@ -94,101 +95,84 @@ public class CsvImportService {
 
     /**
      * Merges non-null fields from the CSV row into an existing patent.
-     * Returns true if any field was actually changed.
+     * Returns a new Patent with merged fields, or null if nothing changed.
      */
-    private boolean mergeChanges(Patent existing, Patent fromCsv) {
+    private Patent mergeChanges(Patent existing, Patent fromCsv) {
         boolean changed = false;
+        Patent.Builder b = Patent.builder(existing);
 
         if (fromCsv.getTitle() != null && !fromCsv.getTitle().equals(existing.getTitle())) {
-            existing.setTitle(fromCsv.getTitle());
+            b.title(fromCsv.getTitle());
             changed = true;
         }
         if (fromCsv.getFilingDate() != null && !fromCsv.getFilingDate().equals(existing.getFilingDate())) {
-            existing.setFilingDate(fromCsv.getFilingDate());
+            b.filingDate(fromCsv.getFilingDate());
             changed = true;
         }
         if (fromCsv.getApplicationNumber() != null && !fromCsv.getApplicationNumber().equals(existing.getApplicationNumber())) {
-            existing.setApplicationNumber(fromCsv.getApplicationNumber());
+            b.applicationNumber(fromCsv.getApplicationNumber());
             changed = true;
         }
         if (fromCsv.getPublicationDate() != null && !fromCsv.getPublicationDate().equals(existing.getPublicationDate())) {
-            existing.setPublicationDate(fromCsv.getPublicationDate());
+            b.publicationDate(fromCsv.getPublicationDate());
             changed = true;
         }
         if (fromCsv.getPublicationNumber() != null && !fromCsv.getPublicationNumber().equals(existing.getPublicationNumber())) {
-            existing.setPublicationNumber(fromCsv.getPublicationNumber());
+            b.publicationNumber(fromCsv.getPublicationNumber());
             changed = true;
         }
         if (fromCsv.getIssueGrantDate() != null && !fromCsv.getIssueGrantDate().equals(existing.getIssueGrantDate())) {
-            existing.setIssueGrantDate(fromCsv.getIssueGrantDate());
+            b.issueGrantDate(fromCsv.getIssueGrantDate());
             changed = true;
         }
         if (fromCsv.getPatentNumber() != null && !fromCsv.getPatentNumber().equals(existing.getPatentNumber())) {
-            existing.setPatentNumber(fromCsv.getPatentNumber());
+            b.patentNumber(fromCsv.getPatentNumber());
             changed = true;
         }
         // ptoStatus is intentionally NOT merged from CSV — USPTO sync is the authoritative source
         if (fromCsv.getClassification() != null && !fromCsv.getClassification().equals(existing.getClassification())) {
-            existing.setClassification(fromCsv.getClassification());
+            b.classification(fromCsv.getClassification());
             changed = true;
         }
         if (fromCsv.getParentFileNumber() != null && !fromCsv.getParentFileNumber().equals(existing.getParentFileNumber())) {
-            existing.setParentFileNumber(fromCsv.getParentFileNumber());
+            b.parentFileNumber(fromCsv.getParentFileNumber());
             changed = true;
         }
 
-        return changed;
+        return changed ? b.build() : null;
     }
 
     private Patent parsePatentRow(String[] cols, int rowNum) {
-        Patent p = new Patent();
-        p.setCsvRowNumber(rowNum);
-
-        // Col 1: File Number
-        p.setFileNumber(clean(cols[1]));
-
-        // Col 2: Title
         String title = clean(cols[2]);
-        p.setTitle(title != null ? title : "Untitled");
-
-        // Col 3: Filing Date
-        p.setFilingDate(parseDate(clean(cols[3])));
-
-        // Col 4: Application #
-        p.setApplicationNumber(clean(cols[4]));
-
-        // Col 5: Publication Date
-        p.setPublicationDate(parseDate(clean(cols[5])));
-
-        // Col 6: Publication #
-        p.setPublicationNumber(clean(cols[6]));
-
-        // Col 7: Issue/Grant Date
-        p.setIssueGrantDate(parseDate(clean(cols[7])));
-
-        // Col 8: Patent #
-        p.setPatentNumber(clean(cols[8]));
-
-        // Col 9: PTO Status — used for initial import; USPTO sync overwrites later
         String ptoStatus = clean(cols[9]);
-        p.setPtoStatus(ptoStatus != null ? ptoStatus : "Unknown");
-
-        // Col 10: Suffix
         String suffix = clean(cols[10]);
-        p.setSuffix(suffix != null && !suffix.isBlank() ? suffix : "US");
+        String fileNumber = clean(cols[1]);
+
+        Patent.Builder b = Patent.builder()
+                .csvRowNumber(rowNum)
+                .fileNumber(fileNumber)
+                .title(title != null ? title : "Untitled")
+                .filingDate(parseDate(clean(cols[3])))
+                .applicationNumber(clean(cols[4]))
+                .publicationDate(parseDate(clean(cols[5])))
+                .publicationNumber(clean(cols[6]))
+                .issueGrantDate(parseDate(clean(cols[7])))
+                .patentNumber(clean(cols[8]))
+                .ptoStatus(ptoStatus != null ? ptoStatus : "Unknown")
+                .suffix(suffix != null && !suffix.isBlank() ? suffix : "US");
 
         // Col 16: Classification (if present)
         if (cols.length > 16) {
-            p.setClassification(clean(cols[16]));
+            b.classification(clean(cols[16]));
         }
 
         // Parse parent file number from file number suffix
-        FileNumberParser fnp = FileNumberParser.parse(p.getFileNumber());
+        FileNumberParser fnp = FileNumberParser.parse(fileNumber);
         if (fnp.hasParent()) {
-            p.setParentFileNumber(fnp.getParentFileNumber());
+            b.parentFileNumber(fnp.getParentFileNumber());
         }
 
-        return p;
+        return b.build();
     }
 
     private void processInventors(int patentId, String[] cols) throws SQLException {

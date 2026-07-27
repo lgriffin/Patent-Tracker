@@ -20,7 +20,6 @@ public class DatabaseManager {
     private static final String DEFAULT_DB_DIR = System.getProperty("user.home") + "/.patenttracker";
     private static final String DEFAULT_DB_NAME = "patents.db";
 
-    private Connection connection;
     private String dbPath;
 
     private DatabaseManager() {}
@@ -42,53 +41,53 @@ public class DatabaseManager {
             dbPath = dir.resolve(DEFAULT_DB_NAME).toString();
         }
 
-        connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("PRAGMA journal_mode=WAL");
-            stmt.execute("PRAGMA foreign_keys=ON");
+        try (Connection conn = createConnection()) {
+            applyMigrations(conn);
         }
-
-        applyMigrations();
     }
 
-    public Connection getConnection() {
-        return connection;
+    public Connection getConnection() throws SQLException {
+        return createConnection();
+    }
+
+    private Connection createConnection() throws SQLException {
+        Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("PRAGMA journal_mode=WAL");
+            stmt.execute("PRAGMA foreign_keys=ON");
+        } catch (SQLException e) {
+            conn.close();
+            throw e;
+        }
+        return conn;
     }
 
     public void close() {
-        if (connection != null) {
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                // Ignore on close
-            }
-        }
+        // Connections are now closed by their callers
     }
 
-    private void applyMigrations() throws SQLException, IOException {
-        int currentVersion = getCurrentSchemaVersion();
+    static void applyMigrations(Connection conn) throws SQLException, IOException {
+        int currentVersion = getCurrentSchemaVersion(conn);
 
-        // Apply V001 if not yet applied
         if (currentVersion < 1) {
-            executeSqlResource("/db/V001__initial_schema.sql");
+            executeSqlResource(conn, "/db/V001__initial_schema.sql");
         }
         if (currentVersion < 2) {
-            executeSqlResource("/db/V002__add_pdf_path.sql");
+            executeSqlResource(conn, "/db/V002__add_pdf_path.sql");
         }
         if (currentVersion < 3) {
-            executeSqlResource("/db/V003__tag_source.sql");
+            executeSqlResource(conn, "/db/V003__tag_source.sql");
         }
         if (currentVersion < 4) {
-            executeSqlResource("/db/V004__patent_text_and_analysis.sql");
+            executeSqlResource(conn, "/db/V004__patent_text_and_analysis.sql");
         }
         if (currentVersion < 5) {
-            executeSqlResource("/db/V005__mined_patents.sql");
+            executeSqlResource(conn, "/db/V005__mined_patents.sql");
         }
     }
 
-    private int getCurrentSchemaVersion() {
-        try (Statement stmt = connection.createStatement()) {
+    private static int getCurrentSchemaVersion(Connection conn) {
+        try (Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
             );
@@ -105,8 +104,8 @@ public class DatabaseManager {
         return 0;
     }
 
-    private void executeSqlResource(String resourcePath) throws SQLException, IOException {
-        InputStream is = getClass().getResourceAsStream(resourcePath);
+    private static void executeSqlResource(Connection conn, String resourcePath) throws SQLException, IOException {
+        InputStream is = DatabaseManager.class.getResourceAsStream(resourcePath);
         if (is == null) {
             throw new IOException("SQL resource not found: " + resourcePath);
         }
@@ -116,12 +115,10 @@ public class DatabaseManager {
             sql = reader.lines().collect(Collectors.joining("\n"));
         }
 
-        // Split on semicolons, but preserve trigger bodies (BEGIN...END blocks)
-        try (Statement stmt = connection.createStatement()) {
+        try (Statement stmt = conn.createStatement()) {
             StringBuilder current = new StringBuilder();
             boolean inTrigger = false;
             for (String s : sql.split(";")) {
-                // Strip comment-only lines to get the actual SQL
                 String cleaned = s.lines()
                         .filter(line -> !line.trim().startsWith("--"))
                         .collect(Collectors.joining("\n")).trim();

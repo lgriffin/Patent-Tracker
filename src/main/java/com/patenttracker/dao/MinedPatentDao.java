@@ -14,10 +14,14 @@ public class MinedPatentDao {
 
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final Connection conn;
+    private final ConnectionProvider connectionProvider;
 
     public MinedPatentDao() {
-        this.conn = DatabaseManager.getInstance().getConnection();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
+    }
+
+    public MinedPatentDao(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
     public void insertOrIgnore(MinedPatent mp) throws SQLException {
@@ -25,7 +29,8 @@ public class MinedPatentDao {
             INSERT OR IGNORE INTO mined_patent (patent_number, title, abstract_text, grant_date, search_area, search_query)
             VALUES (?, ?, ?, ?, ?, ?)
             """;
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, mp.getPatentNumber());
             ps.setString(2, mp.getTitle());
             ps.setString(3, mp.getAbstractText());
@@ -39,7 +44,8 @@ public class MinedPatentDao {
     public List<MinedPatent> findBySearchArea(String searchArea) throws SQLException {
         String sql = "SELECT * FROM mined_patent WHERE search_area = ? ORDER BY grant_date DESC";
         List<MinedPatent> results = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, searchArea);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -51,7 +57,8 @@ public class MinedPatentDao {
 
     public void deleteBySearchArea(String searchArea) throws SQLException {
         String sql = "DELETE FROM mined_patent WHERE search_area = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, searchArea);
             ps.executeUpdate();
         }
@@ -59,7 +66,8 @@ public class MinedPatentDao {
 
     public int countBySearchArea(String searchArea) throws SQLException {
         String sql = "SELECT COUNT(*) FROM mined_patent WHERE search_area = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, searchArea);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
@@ -68,16 +76,16 @@ public class MinedPatentDao {
     }
 
     private MinedPatent mapRow(ResultSet rs) throws SQLException {
-        MinedPatent mp = new MinedPatent();
-        mp.setId(rs.getInt("id"));
-        mp.setPatentNumber(rs.getString("patent_number"));
-        mp.setTitle(rs.getString("title"));
-        mp.setAbstractText(rs.getString("abstract_text"));
-        mp.setGrantDate(parseDate(rs.getString("grant_date")));
-        mp.setSearchArea(rs.getString("search_area"));
-        mp.setSearchQuery(rs.getString("search_query"));
-        mp.setFetchedAt(parseDateTime(rs.getString("fetched_at")));
-        return mp;
+        return MinedPatent.builder()
+                .id(rs.getInt("id"))
+                .patentNumber(rs.getString("patent_number"))
+                .title(rs.getString("title"))
+                .abstractText(rs.getString("abstract_text"))
+                .grantDate(parseDate(rs.getString("grant_date")))
+                .searchArea(rs.getString("search_area"))
+                .searchQuery(rs.getString("search_query"))
+                .fetchedAt(parseDateTime(rs.getString("fetched_at")))
+                .build();
     }
 
     private LocalDate parseDate(String s) {
