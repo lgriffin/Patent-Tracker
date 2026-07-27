@@ -1,6 +1,5 @@
 package com.patenttracker.service;
 
-import com.patenttracker.controller.SettingsController;
 import com.patenttracker.dao.MinedPatentDao;
 import com.patenttracker.model.MinedPatent;
 
@@ -42,6 +41,14 @@ public class GooglePatentsSearchService {
                 .connectTimeout(Duration.ofSeconds(15))
                 .build();
         this.minedPatentDao = new MinedPatentDao();
+    }
+
+    public GooglePatentsSearchService(MinedPatentDao minedPatentDao) {
+        this.minedPatentDao = minedPatentDao;
+        this.httpClient = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
     }
 
     public SearchResult search(String area, List<String> keywords, SearchProgressCallback callback) {
@@ -192,13 +199,14 @@ public class GooglePatentsSearchService {
                         } catch (Exception ignored) {}
                     }
 
-                    MinedPatent mp = new MinedPatent();
-                    mp.setPatentNumber(pubNumber);
-                    mp.setTitle(title != null ? title : pubNumber);
-                    mp.setAbstractText(snippet);
-                    mp.setGrantDate(grantDate);
-                    mp.setSearchArea(area);
-                    mp.setSearchQuery(query);
+                    MinedPatent mp = MinedPatent.builder()
+                            .patentNumber(pubNumber)
+                            .title(title != null ? title : pubNumber)
+                            .abstractText(snippet)
+                            .grantDate(grantDate)
+                            .searchArea(area)
+                            .searchQuery(query)
+                            .build();
                     results.add(mp);
 
                     if (results.size() >= MAX_RESULTS) return results;

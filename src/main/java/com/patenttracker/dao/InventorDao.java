@@ -9,61 +9,55 @@ import java.util.List;
 
 public class InventorDao {
 
-    private final Connection conn;
+    private final ConnectionProvider connectionProvider;
 
     public InventorDao() {
-        this.conn = DatabaseManager.getInstance().getConnection();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
     }
 
-    public InventorDao(Connection conn) {
-        this.conn = conn;
+    public InventorDao(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
     public Inventor findOrCreate(String fullName, String username) throws SQLException {
-        // Try to find by username first (most reliable dedup)
         if (username != null && !username.isBlank()) {
             Inventor existing = findByUsername(username);
             if (existing != null) {
-                // Update fullName if we now have a better one
                 if (fullName != null && !fullName.isBlank()
                     && (existing.getFullName() == null || existing.getFullName().equals(existing.getUsername()))) {
-                    existing.setFullName(fullName);
                     updateFullName(existing.getId(), fullName);
+                    return Inventor.builder(existing).fullName(fullName).build();
                 }
                 return existing;
             }
         }
 
-        // Try by full name
         if (fullName != null && !fullName.isBlank()) {
             Inventor existing = findByFullName(fullName);
             if (existing != null) {
-                // Update username if we now have one
                 if (username != null && !username.isBlank() && existing.getUsername() == null) {
-                    existing.setUsername(username);
                     updateUsername(existing.getId(), username);
+                    return Inventor.builder(existing).username(username).build();
                 }
                 return existing;
             }
         }
 
-        // Create new
-        Inventor inv = new Inventor(fullName, username);
-        insert(inv);
-        return inv;
+        Inventor inv = Inventor.builder().fullName(fullName).username(username).build();
+        int id = insert(inv);
+        return Inventor.builder(inv).id(id).build();
     }
 
     public int insert(Inventor inv) throws SQLException {
         String sql = "INSERT INTO inventor (full_name, username) VALUES (?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, inv.getFullName());
             ps.setString(2, inv.getUsername());
             ps.executeUpdate();
             ResultSet keys = ps.getGeneratedKeys();
             if (keys.next()) {
-                int id = keys.getInt(1);
-                inv.setId(id);
-                return id;
+                return keys.getInt(1);
             }
         }
         return -1;
@@ -71,18 +65,20 @@ public class InventorDao {
 
     public void addPatentInventor(PatentInventor pi) throws SQLException {
         String sql = "INSERT OR IGNORE INTO patent_inventor (patent_id, inventor_id, role, role_position) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, pi.getPatentId());
-            ps.setInt(2, pi.getInventorId());
-            ps.setString(3, pi.getRole());
-            ps.setInt(4, pi.getRolePosition());
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, pi.patentId());
+            ps.setInt(2, pi.inventorId());
+            ps.setString(3, pi.role());
+            ps.setInt(4, pi.rolePosition());
             ps.executeUpdate();
         }
     }
 
     public Inventor findByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM inventor WHERE username = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
@@ -92,7 +88,8 @@ public class InventorDao {
 
     public Inventor findByFullName(String fullName) throws SQLException {
         String sql = "SELECT * FROM inventor WHERE full_name = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, fullName);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
@@ -105,12 +102,12 @@ public class InventorDao {
                      "LEFT JOIN patent_inventor pi ON inv.id = pi.inventor_id " +
                      "GROUP BY inv.id ORDER BY patent_count DESC";
         List<Inventor> results = new ArrayList<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
                 Inventor inv = mapRow(rs);
-                inv.setPatentCount(rs.getInt("patent_count"));
-                results.add(inv);
+                results.add(Inventor.builder(inv).patentCount(rs.getInt("patent_count")).build());
             }
         }
         return results;
@@ -121,7 +118,8 @@ public class InventorDao {
                      "JOIN patent_inventor pi ON inv.id = pi.inventor_id " +
                      "WHERE pi.patent_id = ? ORDER BY pi.role_position";
         List<Inventor> results = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, patentId);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -131,10 +129,6 @@ public class InventorDao {
         return results;
     }
 
-    /**
-     * Returns co-inventor pairs with shared patent counts.
-     * Each row: inventor1_id, inventor1_name, inventor2_id, inventor2_name, shared_count
-     */
     public List<CoInventorEdge> getCoInventorEdges() throws SQLException {
         String sql = """
             SELECT i1.id as inv1_id, i1.full_name as inv1_name,
@@ -148,7 +142,8 @@ public class InventorDao {
             ORDER BY shared_count DESC
             """;
         List<CoInventorEdge> edges = new ArrayList<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
                 edges.add(new CoInventorEdge(
@@ -161,9 +156,6 @@ public class InventorDao {
         return edges;
     }
 
-    /**
-     * Returns co-inventor edges filtered by a set of patent IDs.
-     */
     public List<CoInventorEdge> getCoInventorEdges(List<Integer> patentIds) throws SQLException {
         if (patentIds == null || patentIds.isEmpty()) {
             return getCoInventorEdges();
@@ -184,7 +176,8 @@ public class InventorDao {
             """, placeholders);
 
         List<CoInventorEdge> edges = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < patentIds.size(); i++) {
                 ps.setInt(i + 1, patentIds.get(i));
             }
@@ -201,7 +194,8 @@ public class InventorDao {
     }
 
     private void updateFullName(int id, String fullName) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE inventor SET full_name = ? WHERE id = ?")) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE inventor SET full_name = ? WHERE id = ?")) {
             ps.setString(1, fullName);
             ps.setInt(2, id);
             ps.executeUpdate();
@@ -209,7 +203,8 @@ public class InventorDao {
     }
 
     private void updateUsername(int id, String username) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE inventor SET username = ? WHERE id = ?")) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE inventor SET username = ? WHERE id = ?")) {
             ps.setString(1, username);
             ps.setInt(2, id);
             ps.executeUpdate();
@@ -217,11 +212,11 @@ public class InventorDao {
     }
 
     private Inventor mapRow(ResultSet rs) throws SQLException {
-        Inventor inv = new Inventor();
-        inv.setId(rs.getInt("id"));
-        inv.setFullName(rs.getString("full_name"));
-        inv.setUsername(rs.getString("username"));
-        return inv;
+        return Inventor.builder()
+                .id(rs.getInt("id"))
+                .fullName(rs.getString("full_name"))
+                .username(rs.getString("username"))
+                .build();
     }
 
     public record CoInventorEdge(int inventor1Id, String inventor1Name,

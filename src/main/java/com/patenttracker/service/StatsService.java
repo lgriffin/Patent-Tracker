@@ -1,5 +1,6 @@
 package com.patenttracker.service;
 
+import com.patenttracker.dao.ConnectionProvider;
 import com.patenttracker.dao.DatabaseManager;
 
 import java.sql.*;
@@ -10,10 +11,14 @@ import java.util.Map;
 
 public class StatsService {
 
-    private final Connection conn;
+    private final ConnectionProvider connectionProvider;
 
     public StatsService() {
-        this.conn = DatabaseManager.getInstance().getConnection();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
+    }
+
+    public StatsService(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
     public int getTotalCount() throws SQLException {
@@ -44,10 +49,8 @@ public class StatsService {
     }
 
     public Map<String, Map<String, Integer>> getYearlyBreakdown() throws SQLException {
-        // Returns year -> { "Filed" -> count, "Issued" -> count, "Published" -> count }
         Map<String, Map<String, Integer>> result = new LinkedHashMap<>();
 
-        // Collect all years from all date columns
         String yearsSql = """
             SELECT DISTINCT year FROM (
                 SELECT substr(filing_date,1,4) as year FROM patent WHERE filing_date IS NOT NULL
@@ -57,7 +60,8 @@ public class StatsService {
                 SELECT substr(publication_date,1,4) as year FROM patent WHERE publication_date IS NOT NULL
             ) ORDER BY year
             """;
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(yearsSql);
             while (rs.next()) {
                 String year = rs.getString(1);
@@ -67,17 +71,14 @@ public class StatsService {
             }
         }
 
-        // Filed per year (by filing_date)
         addBreakdownCounts(result, "Filed",
             "SELECT substr(filing_date,1,4) as year, COUNT(*) as cnt FROM patent " +
             "WHERE filing_date IS NOT NULL GROUP BY year ORDER BY year");
 
-        // Issued per year (by issue_grant_date)
         addBreakdownCounts(result, "Issued",
             "SELECT substr(issue_grant_date,1,4) as year, COUNT(*) as cnt FROM patent " +
             "WHERE issue_grant_date IS NOT NULL GROUP BY year ORDER BY year");
 
-        // Published per year (by publication_date)
         addBreakdownCounts(result, "Published",
             "SELECT substr(publication_date,1,4) as year, COUNT(*) as cnt FROM patent " +
             "WHERE publication_date IS NOT NULL GROUP BY year ORDER BY year");
@@ -87,7 +88,8 @@ public class StatsService {
 
     private void addBreakdownCounts(Map<String, Map<String, Integer>> result, String category, String sql)
             throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
                 String year = rs.getString(1);
@@ -110,10 +112,6 @@ public class StatsService {
     public record CollaboratorInfo(String name, int patents, int published, int allowed, int pending,
                                     String topClassifications) {}
 
-    /**
-     * Returns top collaborators excluding the owner, with patent count, status breakdown,
-     * and top classifications.
-     */
     public List<CollaboratorInfo> getTopCollaboratorsWithClassifications(String ownerName, int limit)
             throws SQLException {
         List<CollaboratorInfo> results = new ArrayList<>();
@@ -133,7 +131,8 @@ public class StatsService {
                         "WHERE pi.inventor_id = ? " +
                         "GROUP BY t.id ORDER BY cnt DESC LIMIT 3";
 
-        try (PreparedStatement ps = conn.prepareStatement(sql);
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
              PreparedStatement statusPs = conn.prepareStatement(statusSql);
              PreparedStatement tagPs = conn.prepareStatement(tagSql)) {
             ps.setString(1, ownerName);
@@ -178,10 +177,6 @@ public class StatsService {
         return results;
     }
 
-    /**
-     * Groups raw USPTO statuses into lifecycle phases and returns counts.
-     * Phases: Patented, Allowed, Published, In Examination, Filed/Pending, Abandoned/Expired
-     */
     public Map<String, Integer> getCountByStatusGrouped() throws SQLException {
         Map<String, Integer> raw = getCountByStatus();
         Map<String, Integer> grouped = new LinkedHashMap<>();
@@ -215,10 +210,6 @@ public class StatsService {
         return grouped;
     }
 
-    /**
-     * Returns role breakdown for a given owner name.
-     * Map keys: "PRIMARY", "SECONDARY", "ADDITIONAL"
-     */
     public Map<String, Integer> getOwnerRoleBreakdown(String ownerName) throws SQLException {
         Map<String, Integer> result = new LinkedHashMap<>();
         result.put("PRIMARY", 0);
@@ -229,7 +220,8 @@ public class StatsService {
                      "JOIN inventor i ON pi.inventor_id = i.id " +
                      "WHERE i.full_name = ? OR i.username = ? " +
                      "GROUP BY pi.role";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, ownerName);
             ps.setString(2, ownerName);
             ResultSet rs = ps.executeQuery();
@@ -241,7 +233,8 @@ public class StatsService {
     }
 
     private int queryInt(String sql) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             return rs.next() ? rs.getInt(1) : 0;
         }
@@ -249,7 +242,8 @@ public class StatsService {
 
     private Map<String, Integer> queryMap(String sql) throws SQLException {
         Map<String, Integer> map = new LinkedHashMap<>();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
                 String key = rs.getString(1);

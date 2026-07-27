@@ -2,33 +2,32 @@ package com.patenttracker.model;
 
 import java.time.LocalDateTime;
 
-public class PatentAnalysis {
-    private int id;
-    private int patentId;
-    private String analysisType;
-    private String resultJson;
-    private String modelUsed;
-    private LocalDateTime analyzedAt;
+public final class PatentAnalysis {
+    private final int id;
+    private final int patentId;
+    private final String analysisType;
+    private final String resultJson;
+    private final String modelUsed;
+    private final LocalDateTime analyzedAt;
 
-    public PatentAnalysis() {}
+    private PatentAnalysis(Builder b) {
+        this.id = b.id;
+        this.patentId = b.patentId;
+        this.analysisType = b.analysisType;
+        this.resultJson = b.resultJson;
+        this.modelUsed = b.modelUsed;
+        this.analyzedAt = b.analyzedAt;
+    }
+
+    public static Builder builder() { return new Builder(); }
+    public static Builder builder(PatentAnalysis m) { return new Builder(m); }
 
     public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-
     public int getPatentId() { return patentId; }
-    public void setPatentId(int patentId) { this.patentId = patentId; }
-
     public String getAnalysisType() { return analysisType; }
-    public void setAnalysisType(String analysisType) { this.analysisType = analysisType; }
-
     public String getResultJson() { return resultJson; }
-    public void setResultJson(String resultJson) { this.resultJson = resultJson; }
-
     public String getModelUsed() { return modelUsed; }
-    public void setModelUsed(String modelUsed) { this.modelUsed = modelUsed; }
-
     public LocalDateTime getAnalyzedAt() { return analyzedAt; }
-    public void setAnalyzedAt(LocalDateTime analyzedAt) { this.analyzedAt = analyzedAt; }
 
     public enum AnalysisType {
         CLAIMS("Claim Decomposition"),
@@ -59,5 +58,34 @@ public class PatentAnalysis {
                 return TECHNOLOGY;
             }
         }
+    }
+
+    public static final class Builder {
+        private int id;
+        private int patentId;
+        private String analysisType;
+        private String resultJson;
+        private String modelUsed;
+        private LocalDateTime analyzedAt;
+
+        private Builder() {}
+
+        private Builder(PatentAnalysis m) {
+            this.id = m.id;
+            this.patentId = m.patentId;
+            this.analysisType = m.analysisType;
+            this.resultJson = m.resultJson;
+            this.modelUsed = m.modelUsed;
+            this.analyzedAt = m.analyzedAt;
+        }
+
+        public Builder id(int id) { this.id = id; return this; }
+        public Builder patentId(int patentId) { this.patentId = patentId; return this; }
+        public Builder analysisType(String analysisType) { this.analysisType = analysisType; return this; }
+        public Builder resultJson(String resultJson) { this.resultJson = resultJson; return this; }
+        public Builder modelUsed(String modelUsed) { this.modelUsed = modelUsed; return this; }
+        public Builder analyzedAt(LocalDateTime analyzedAt) { this.analyzedAt = analyzedAt; return this; }
+
+        public PatentAnalysis build() { return new PatentAnalysis(this); }
     }
 }

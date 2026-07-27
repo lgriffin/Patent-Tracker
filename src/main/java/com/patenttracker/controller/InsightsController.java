@@ -8,6 +8,7 @@ import com.patenttracker.service.InsightService;
 import com.patenttracker.service.PdfExtractorService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -25,7 +26,6 @@ import java.sql.SQLException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class InsightsController {
 
@@ -72,7 +72,7 @@ public class InsightsController {
     private final InsightService insightService = new InsightService();
     private final PdfExtractorService pdfExtractorService = new PdfExtractorService();
     private final PatentDao patentDao = new PatentDao();
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private Task<?> currentTask;
 
     @FXML
     public void initialize() {
@@ -110,38 +110,63 @@ public class InsightsController {
 
     @FXML
     public void handleExtractAll() {
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(0);
         progressLabel.setText("Starting text extraction...");
 
-        new Thread(() -> {
-            List<PdfExtractorService.ExtractionResult> results =
-                    pdfExtractorService.extractAll(new PdfExtractorService.ExtractionProgressCallback() {
-                        @Override
-                        public void onProgress(int current, int total, String title) {
-                            Platform.runLater(() -> {
-                                progressBar.setProgress((double) current / total);
-                                progressLabel.setText("Extracting " + current + " of " + total + ": "
-                                        + truncate(title, 50));
-                            });
-                        }
-                        @Override
-                        public void onResult(PdfExtractorService.ExtractionResult result) {}
-                        @Override
-                        public boolean isCancelled() { return cancelled.get(); }
-                    });
+        var task = new Task<List<PdfExtractorService.ExtractionResult>>() {
+            @Override
+            protected List<PdfExtractorService.ExtractionResult> call() {
+                var self = this;
+                return pdfExtractorService.extractAll(new PdfExtractorService.ExtractionProgressCallback() {
+                    @Override
+                    public void onProgress(int current, int total, String title) {
+                        updateProgress(current, total);
+                        updateMessage("Extracting " + current + " of " + total + ": "
+                                + truncate(title, 50));
+                    }
+                    @Override
+                    public void onResult(PdfExtractorService.ExtractionResult result) {}
+                    @Override
+                    public boolean isCancelled() { return self.isCancelled(); }
+                });
+            }
+        };
 
-            Platform.runLater(() -> {
-                long success = results.stream().filter(PdfExtractorService.ExtractionResult::success).count();
-                long failed = results.size() - success;
-                progressLabel.setText("Extraction complete: " + success + " extracted"
-                        + (failed > 0 ? ", " + failed + " failed" : ""));
-                progressBar.setProgress(1.0);
-                setRunning(false);
-                refresh();
-            });
-        }).start();
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            List<PdfExtractorService.ExtractionResult> results = task.getValue();
+            long success = results.stream().filter(PdfExtractorService.ExtractionResult::success).count();
+            long failed = results.size() - success;
+            progressLabel.setText("Extraction complete: " + success + " extracted"
+                    + (failed > 0 ? ", " + failed + " failed" : ""));
+            progressBar.setProgress(1.0);
+            setRunning(false);
+            refresh();
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Extraction failed: " + task.getException().getMessage());
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Extraction cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -151,39 +176,64 @@ public class InsightsController {
             return;
         }
 
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(0);
         progressLabel.setText("Starting batch technology extraction...");
 
-        new Thread(() -> {
-            List<InsightService.InsightResult> results =
-                    insightService.analyzeAll("TECHNOLOGY", "technology",
-                            new InsightService.AnalysisProgressCallback() {
-                                @Override
-                                public void onProgress(int current, int total, String title) {
-                                    Platform.runLater(() -> {
-                                        progressBar.setProgress((double) current / total);
-                                        progressLabel.setText("Analyzing " + current + " of " + total + ": "
-                                                + truncate(title, 50));
-                                    });
-                                }
-                                @Override
-                                public void onResult(InsightService.InsightResult result) {}
-                                @Override
-                                public boolean isCancelled() { return cancelled.get(); }
-                            });
+        var task = new Task<List<InsightService.InsightResult>>() {
+            @Override
+            protected List<InsightService.InsightResult> call() {
+                var self = this;
+                return insightService.analyzeAll("TECHNOLOGY", "technology",
+                        new InsightService.AnalysisProgressCallback() {
+                            @Override
+                            public void onProgress(int current, int total, String title) {
+                                updateProgress(current, total);
+                                updateMessage("Analyzing " + current + " of " + total + ": "
+                                        + truncate(title, 50));
+                            }
+                            @Override
+                            public void onResult(InsightService.InsightResult result) {}
+                            @Override
+                            public boolean isCancelled() { return self.isCancelled(); }
+                        });
+            }
+        };
 
-            Platform.runLater(() -> {
-                long success = results.stream().filter(InsightService.InsightResult::success).count();
-                long failed = results.size() - success;
-                progressLabel.setText("Analysis complete: " + success + " analyzed"
-                        + (failed > 0 ? ", " + failed + " failed" : ""));
-                progressBar.setProgress(1.0);
-                setRunning(false);
-                refresh();
-            });
-        }).start();
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            List<InsightService.InsightResult> results = task.getValue();
+            long success = results.stream().filter(InsightService.InsightResult::success).count();
+            long failed = results.size() - success;
+            progressLabel.setText("Analysis complete: " + success + " analyzed"
+                    + (failed > 0 ? ", " + failed + " failed" : ""));
+            progressBar.setProgress(1.0);
+            setRunning(false);
+            refresh();
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Analysis failed: " + task.getException().getMessage());
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText("Analysis cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -207,39 +257,64 @@ public class InsightsController {
             return;
         }
 
-        cancelled.set(false);
         setRunning(true);
         progressBar.setProgress(0);
         progressLabel.setText("Starting batch " + label.toLowerCase() + "...");
 
-        new Thread(() -> {
-            List<InsightService.InsightResult> results =
-                    insightService.analyzeAll(analysisType, templateName,
-                            new InsightService.AnalysisProgressCallback() {
-                                @Override
-                                public void onProgress(int current, int total, String title) {
-                                    Platform.runLater(() -> {
-                                        progressBar.setProgress((double) current / total);
-                                        progressLabel.setText(label + " " + current + " of " + total + ": "
-                                                + truncate(title, 50));
-                                    });
-                                }
-                                @Override
-                                public void onResult(InsightService.InsightResult result) {}
-                                @Override
-                                public boolean isCancelled() { return cancelled.get(); }
-                            });
+        var task = new Task<List<InsightService.InsightResult>>() {
+            @Override
+            protected List<InsightService.InsightResult> call() {
+                var self = this;
+                return insightService.analyzeAll(analysisType, templateName,
+                        new InsightService.AnalysisProgressCallback() {
+                            @Override
+                            public void onProgress(int current, int total, String title) {
+                                updateProgress(current, total);
+                                updateMessage(label + " " + current + " of " + total + ": "
+                                        + truncate(title, 50));
+                            }
+                            @Override
+                            public void onResult(InsightService.InsightResult result) {}
+                            @Override
+                            public boolean isCancelled() { return self.isCancelled(); }
+                        });
+            }
+        };
 
-            Platform.runLater(() -> {
-                long success = results.stream().filter(InsightService.InsightResult::success).count();
-                long failed = results.size() - success;
-                progressLabel.setText(label + " complete: " + success + " analyzed"
-                        + (failed > 0 ? ", " + failed + " failed" : ""));
-                progressBar.setProgress(1.0);
-                setRunning(false);
-                refresh();
-            });
-        }).start();
+        progressBar.progressProperty().bind(task.progressProperty());
+        progressLabel.textProperty().bind(task.messageProperty());
+
+        task.setOnSucceeded(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            List<InsightService.InsightResult> results = task.getValue();
+            long success = results.stream().filter(InsightService.InsightResult::success).count();
+            long failed = results.size() - success;
+            progressLabel.setText(label + " complete: " + success + " analyzed"
+                    + (failed > 0 ? ", " + failed + " failed" : ""));
+            progressBar.setProgress(1.0);
+            setRunning(false);
+            refresh();
+        });
+
+        task.setOnFailed(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText(label + " failed: " + task.getException().getMessage());
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressBar.progressProperty().unbind();
+            progressLabel.textProperty().unbind();
+            progressBar.setProgress(0);
+            progressLabel.setText(label + " cancelled.");
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -292,7 +367,7 @@ public class InsightsController {
             List<Patent> patents = patentDao.findAll();
             if (!patents.isEmpty()) {
                 PatentAnalysis cached = insightService.getCachedAnalysis(
-                        patents.get(0).getId(), analysisType);
+                        patents.getFirst().getId(), analysisType);
                 if (cached != null) {
                     String when = cached.getAnalyzedAt() != null
                             ? cached.getAnalyzedAt().format(DISPLAY_DATETIME) : "previously";
@@ -305,7 +380,7 @@ public class InsightsController {
                         progressLabel.setText("Using cached " + label + " results.");
                         return;
                     }
-                    insightService.deleteCachedAnalysis(patents.get(0).getId(), analysisType);
+                    insightService.deleteCachedAnalysis(patents.getFirst().getId(), analysisType);
                 }
             }
         } catch (SQLException e) {
@@ -316,35 +391,35 @@ public class InsightsController {
         progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
         progressLabel.setText("Running " + label + "...");
 
-        InsightService.CrossPatentProgressCallback progressCallback =
-                new InsightService.CrossPatentProgressCallback() {
+        var task = new Task<InsightService.InsightResult>() {
             @Override
-            public void onChunkProgress(int currentChunk, int totalChunks) {
-                Platform.runLater(() -> {
-                    progressBar.setProgress((double) currentChunk / (totalChunks + 1));
-                    progressLabel.setText("Running " + label + "... Chunk " + currentChunk + "/" + totalChunks);
-                });
-            }
-            @Override
-            public void onMergeProgress() {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Running " + label + "... Merging chunk results...");
-                });
-            }
-            @Override
-            public void onStreamingStatus(String status) {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Running " + label + "... " + status);
-                });
-            }
-            @Override
-            public boolean isCancelled() { return cancelled.get(); }
-        };
+            protected InsightService.InsightResult call() throws Exception {
+                var self = this;
+                InsightService.CrossPatentProgressCallback progressCallback =
+                        new InsightService.CrossPatentProgressCallback() {
+                    @Override
+                    public void onChunkProgress(int currentChunk, int totalChunks) {
+                        Platform.runLater(() -> {
+                            progressBar.setProgress((double) currentChunk / (totalChunks + 1));
+                            progressLabel.setText("Running " + label + "... Chunk " + currentChunk + "/" + totalChunks);
+                        });
+                    }
+                    @Override
+                    public void onMergeProgress() {
+                        Platform.runLater(() ->
+                                progressLabel.setText("Running " + label + "... Merging chunk results..."));
+                    }
+                    @Override
+                    public void onStreamingStatus(String status) {
+                        Platform.runLater(() ->
+                                progressLabel.setText("Running " + label + "... " + status));
+                    }
+                    @Override
+                    public boolean isCancelled() { return self.isCancelled(); }
+                };
 
-        new Thread(() -> {
-            try {
                 List<Patent> patents = patentDao.findAll();
-                InsightService.InsightResult result = switch (analysisType) {
+                return switch (analysisType) {
                     case "WHITESPACE" -> insightService.analyzeWhitespace(patents, progressCallback);
                     case "CLUSTERING" -> insightService.analyzeClustering(patents, progressCallback);
                     case "ADJACENCY" -> insightService.analyzeAdjacency(patents, progressCallback);
@@ -355,26 +430,37 @@ public class InsightsController {
                     case "CROSS_DOMAIN" -> insightService.analyzeCrossDomain(patents, progressCallback);
                     default -> new InsightService.InsightResult(false, analysisType, null, "Unknown type", 0);
                 };
-
-                Platform.runLater(() -> {
-                    if (result.success()) {
-                        progressLabel.setText(label + " completed in " + (result.durationMs() / 1000) + "s."
-                                + formatCost(result));
-                    } else {
-                        progressLabel.setText(label + " failed: " + result.error());
-                    }
-                    progressBar.setProgress(1.0);
-                    setRunning(false);
-                    refresh();
-                });
-            } catch (SQLException e) {
-                Platform.runLater(() -> {
-                    progressLabel.setText("Database error: " + e.getMessage());
-                    progressBar.setProgress(0);
-                    setRunning(false);
-                });
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            InsightService.InsightResult result = task.getValue();
+            if (result.success()) {
+                progressLabel.setText(label + " completed in " + (result.durationMs() / 1000) + "s."
+                        + formatCost(result));
+            } else {
+                progressLabel.setText(label + " failed: " + result.error());
+            }
+            progressBar.setProgress(1.0);
+            setRunning(false);
+            refresh();
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            progressLabel.setText("Error: " + ex.getMessage());
+            progressBar.setProgress(0);
+            setRunning(false);
+        });
+
+        task.setOnCancelled(event -> {
+            progressLabel.setText(label + " cancelled.");
+            progressBar.setProgress(0);
+            setRunning(false);
+        });
+
+        currentTask = task;
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -390,26 +476,29 @@ public class InsightsController {
 
         if (file != null) {
             progressLabel.setText("Exporting...");
-            new Thread(() -> {
-                try {
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = insightService.exportMarkdown();
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+            Thread.ofVirtual().start(task);
         }
     }
 
     @FXML
     private void handleCancel() {
-        cancelled.set(true);
-        progressLabel.setText("Cancelling...");
+        if (currentTask != null) {
+            currentTask.cancel();
+        }
     }
 
     private void refreshPortfolioStatus(Label label, String analysisType) {
@@ -417,7 +506,7 @@ public class InsightsController {
             List<Patent> patents = patentDao.findAll();
             if (!patents.isEmpty()) {
                 PatentAnalysis analysis = insightService.getCachedAnalysis(
-                        patents.get(0).getId(), analysisType);
+                        patents.getFirst().getId(), analysisType);
                 if (analysis != null && analysis.getAnalyzedAt() != null) {
                     label.setText("Done " + analysis.getAnalyzedAt().format(DISPLAY_DATETIME));
                     label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
@@ -442,19 +531,21 @@ public class InsightsController {
 
         if (file != null) {
             progressLabel.setText("Exporting...");
-            new Thread(() -> {
-                try {
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = insightService.exportCrossPatentMarkdown();
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+            Thread.ofVirtual().start(task);
         }
     }
 
@@ -471,19 +562,21 @@ public class InsightsController {
 
         if (file != null) {
             progressLabel.setText("Exporting " + label + "...");
-            new Thread(() -> {
-                try {
+            var task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
                     String markdown = insightService.exportSingleAnalysisMarkdown(analysisType, label);
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(markdown);
                     }
-                    Platform.runLater(() ->
-                            progressLabel.setText("Exported " + label + " to " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() ->
-                            progressLabel.setText("Export failed: " + e.getMessage()));
+                    return null;
                 }
-            }).start();
+            };
+            task.setOnSucceeded(event ->
+                    progressLabel.setText("Exported " + label + " to " + file.getName()));
+            task.setOnFailed(event ->
+                    progressLabel.setText("Export failed: " + task.getException().getMessage()));
+            Thread.ofVirtual().start(task);
         }
     }
 
@@ -512,7 +605,7 @@ public class InsightsController {
         try {
             List<Patent> patents = patentDao.findAll();
             if (patents.isEmpty()) return;
-            int firstId = patents.get(0).getId();
+            int firstId = patents.getFirst().getId();
 
             addAnalysisPane(firstId, "WHITESPACE", "Whitespace Finder");
             addAnalysisPane(firstId, "CLUSTERING", "Cross-Patent Clustering");

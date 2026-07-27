@@ -1,5 +1,6 @@
 package com.patenttracker.controller;
 
+import com.patenttracker.service.ConfigService;
 import com.patenttracker.service.StatsService;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -100,7 +101,7 @@ public class DashboardController {
             continuanceCountLabel.setText(String.valueOf(statsService.getContinuanceCount()));
 
             // Owner stats
-            String ownerName = SettingsController.getOwnerName();
+            String ownerName = ConfigService.getInstance().getOwnerName();
             ownerNameLabel.setText(ownerName);
             Map<String, Integer> ownerRoles = statsService.getOwnerRoleBreakdown(ownerName);
             int primary = ownerRoles.getOrDefault("PRIMARY", 0);

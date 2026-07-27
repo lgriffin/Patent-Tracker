@@ -4,11 +4,10 @@ import com.patenttracker.dao.InventorDao;
 import com.patenttracker.model.Inventor;
 import com.patenttracker.service.PdfDownloadService;
 import javafx.collections.FXCollections;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
-
-import javafx.application.Platform;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -182,6 +181,7 @@ public class SettingsController {
         props.setProperty("claude.idle.timeout", String.valueOf(idleTimeoutSpinner.getValue()));
         props.setProperty("claude.batch.size", String.valueOf(batchSizeSpinner.getValue()));
         saveProperties(props);
+        com.patenttracker.service.ConfigService.getInstance().reload();
 
         saved = true;
         Stage stage = (Stage) apiKeyField.getScene().getWindow();
@@ -241,8 +241,9 @@ public class SettingsController {
         claudeCliStatusLabel.setText("Testing...");
 
         String finalPath = path;
-        new Thread(() -> {
-            try {
+        var task = new Task<String>() {
+            @Override
+            protected String call() throws Exception {
                 ProcessBuilder pb = new ProcessBuilder(finalPath, "--version");
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
@@ -251,22 +252,26 @@ public class SettingsController {
                     output = reader.lines().collect(Collectors.joining(" "));
                 }
                 boolean ok = process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0;
-                Platform.runLater(() -> {
-                    if (ok) {
-                        claudeCliStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
-                        claudeCliStatusLabel.setText("Claude CLI found: " + output.trim());
-                    } else {
-                        claudeCliStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
-                        claudeCliStatusLabel.setText("Claude CLI not found or returned error.");
-                    }
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    claudeCliStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
-                    claudeCliStatusLabel.setText("Error: " + e.getMessage());
-                });
+                if (ok) {
+                    return output.trim();
+                } else {
+                    throw new RuntimeException("Claude CLI not found or returned error.");
+                }
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            claudeCliStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
+            claudeCliStatusLabel.setText("Claude CLI found: " + task.getValue());
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            claudeCliStatusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 11px;");
+            claudeCliStatusLabel.setText("Error: " + ex.getMessage());
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     @FXML
@@ -303,51 +308,4 @@ public class SettingsController {
         }
     }
 
-    public static String getOwnerName() {
-        return loadProperties().getProperty("owner.name", "Leigh Griffin");
-    }
-
-    public static String getApiKey() {
-        return loadProperties().getProperty("uspto.api.key", DEFAULT_API_KEY);
-    }
-
-    public static String getClaudeCliPath() {
-        return loadProperties().getProperty("claude.cli.path", "claude");
-    }
-
-    public static int getAnalysisTimeout() {
-        String timeout = loadProperties().getProperty("claude.analysis.timeout", "600");
-        try {
-            return Integer.parseInt(timeout);
-        } catch (NumberFormatException e) {
-            return 600;
-        }
-    }
-
-    public static int getRateLimitDelay() {
-        String delay = loadProperties().getProperty("uspto.rate.delay", "1100");
-        try {
-            return Integer.parseInt(delay);
-        } catch (NumberFormatException e) {
-            return 1100;
-        }
-    }
-
-    public static int getIdleTimeout() {
-        String val = loadProperties().getProperty("claude.idle.timeout", "120");
-        try {
-            return Integer.parseInt(val);
-        } catch (NumberFormatException e) {
-            return 120;
-        }
-    }
-
-    public static int getBatchSize() {
-        String val = loadProperties().getProperty("claude.batch.size", "30");
-        try {
-            return Integer.parseInt(val);
-        } catch (NumberFormatException e) {
-            return 30;
-        }
-    }
 }

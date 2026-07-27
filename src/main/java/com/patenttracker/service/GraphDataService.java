@@ -1,6 +1,6 @@
 package com.patenttracker.service;
 
-import com.patenttracker.controller.SettingsController;
+import com.patenttracker.dao.ConnectionProvider;
 import com.patenttracker.dao.DatabaseManager;
 import com.patenttracker.dao.InventorDao;
 import com.patenttracker.dao.InventorDao.CoInventorEdge;
@@ -13,9 +13,16 @@ import java.util.*;
 public class GraphDataService {
 
     private final InventorDao inventorDao;
+    private final ConnectionProvider connectionProvider;
 
     public GraphDataService() {
         this.inventorDao = new InventorDao();
+        this.connectionProvider = () -> DatabaseManager.getInstance().getConnection();
+    }
+
+    public GraphDataService(InventorDao inventorDao, ConnectionProvider connectionProvider) {
+        this.inventorDao = inventorDao;
+        this.connectionProvider = connectionProvider;
     }
 
     public String buildGraphJson(List<Patent> filteredPatents) throws SQLException {
@@ -26,7 +33,6 @@ public class GraphDataService {
 
         List<CoInventorEdge> edges = inventorDao.getCoInventorEdges(patentIds);
 
-        // Collect unique inventors from edges
         Set<Integer> inventorIds = new LinkedHashSet<>();
         Map<Integer, String> inventorNames = new HashMap<>();
         Map<Integer, Integer> inventorPatentCounts = new HashMap<>();
@@ -40,7 +46,6 @@ public class GraphDataService {
             inventorPatentCounts.merge(edge.inventor2Id(), edge.sharedCount(), Integer::sum);
         }
 
-        // Also get standalone inventors with patents but no co-inventors
         List<Inventor> allInventors = inventorDao.findAll();
         for (Inventor inv : allInventors) {
             if (!inventorIds.contains(inv.getId()) && inv.getPatentCount() > 0) {
@@ -50,13 +55,10 @@ public class GraphDataService {
             }
         }
 
-        // Get primary classification (most-used tag) per inventor
         Map<Integer, String> inventorPrimaryTag = getInventorPrimaryTags(inventorIds);
 
-        // Get owner name for highlighting
-        String ownerName = SettingsController.getOwnerName();
+        String ownerName = ConfigService.getInstance().getOwnerName();
 
-        // Build JSON
         StringBuilder json = new StringBuilder();
         json.append("{\"ownerName\":\"").append(escapeJson(ownerName)).append("\",");
         json.append("\"nodes\":[");
@@ -92,9 +94,6 @@ public class GraphDataService {
         return json.toString();
     }
 
-    /**
-     * For each inventor, find their most frequently associated tag (primary classification).
-     */
     private Map<Integer, String> getInventorPrimaryTags(Set<Integer> inventorIds) {
         if (inventorIds.isEmpty()) return Map.of();
 
@@ -110,13 +109,12 @@ public class GraphDataService {
             """;
 
         String placeholders = String.join(",", inventorIds.stream().map(id -> String.valueOf(id)).toList());
-        Connection conn = DatabaseManager.getInstance().getConnection();
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionProvider.getConnection();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery(String.format(sql, placeholders));
             int lastInventorId = -1;
             while (rs.next()) {
                 int invId = rs.getInt("inventor_id");
-                // Only take the first (highest count) tag per inventor
                 if (invId != lastInventorId) {
                     result.put(invId, rs.getString("name"));
                     lastInventorId = invId;

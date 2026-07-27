@@ -1,6 +1,5 @@
 package com.patenttracker.service;
 
-import com.patenttracker.controller.SettingsController;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -12,6 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -22,6 +23,7 @@ public class ClaudeCliService {
     private static final int DEFAULT_TIMEOUT_SECONDS = 180;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Map<String, String> templateCache = new HashMap<>();
+    private static final ExecutorService VIRTUAL_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
     public AnalysisResult analyze(String promptTemplate, Map<String, String> variables) {
         return analyze(promptTemplate, variables, DEFAULT_TIMEOUT_SECONDS);
@@ -51,21 +53,21 @@ public class ClaudeCliService {
                     writer.write(finalPrompt);
                     writer.flush();
                 } catch (IOException ignored) {}
-            });
+            }, VIRTUAL_EXECUTOR);
 
             CompletableFuture<String> stdoutFuture = CompletableFuture.supplyAsync(() -> {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                     return reader.lines().collect(Collectors.joining("\n"));
                 } catch (IOException e) { return ""; }
-            });
+            }, VIRTUAL_EXECUTOR);
 
             CompletableFuture<String> stderrFuture = CompletableFuture.supplyAsync(() -> {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
                     return reader.lines().collect(Collectors.joining("\n"));
                 } catch (IOException e) { return ""; }
-            });
+            }, VIRTUAL_EXECUTOR);
 
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
 
@@ -204,7 +206,7 @@ public class ClaudeCliService {
 
     public static String getCliPath() {
         try {
-            String path = SettingsController.getClaudeCliPath();
+            String path = ConfigService.getInstance().getClaudeCliPath();
             return (path == null || path.isBlank()) ? "claude" : path;
         } catch (Exception e) {
             return "claude";
@@ -254,7 +256,7 @@ public class ClaudeCliService {
                     writer.write(finalPrompt);
                     writer.flush();
                 } catch (IOException ignored) {}
-            });
+            }, VIRTUAL_EXECUTOR);
 
             StringBuilder accumulated = new StringBuilder();
             AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
@@ -269,9 +271,9 @@ public class ClaudeCliService {
                         new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
                     return reader.lines().collect(Collectors.joining("\n"));
                 } catch (IOException e) { return ""; }
-            });
+            }, VIRTUAL_EXECUTOR);
 
-            Thread watchdog = new Thread(() -> {
+            Thread watchdog = Thread.ofVirtual().name("claude-watchdog").start(() -> {
                 while (process.isAlive()) {
                     if (callback != null && callback.isCancelled()) {
                         cancelled.set(true);
@@ -287,8 +289,6 @@ public class ClaudeCliService {
                     try { Thread.sleep(5000); } catch (InterruptedException e) { return; }
                 }
             });
-            watchdog.setDaemon(true);
-            watchdog.start();
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {

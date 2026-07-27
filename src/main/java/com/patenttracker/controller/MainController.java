@@ -3,6 +3,7 @@ package com.patenttracker.controller;
 import com.patenttracker.service.AutoTagService;
 import com.patenttracker.service.CsvImportService;
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -62,55 +63,60 @@ public class MainController {
         if (file != null) {
             statusLabel.setText("Importing " + file.getName() + "...");
 
-            new Thread(() -> {
-                try {
+            var task = new Task<CsvImportService.ImportResult>() {
+                @Override
+                protected CsvImportService.ImportResult call() throws Exception {
                     CsvImportService importService = new CsvImportService();
-                    CsvImportService.ImportResult result = importService.importCsv(file.getAbsolutePath());
-
-                    Platform.runLater(() -> {
-                        StringBuilder msg = new StringBuilder();
-                        msg.append(result.imported()).append(" new");
-                        if (result.updated() > 0) {
-                            msg.append(", ").append(result.updated()).append(" updated");
-                        }
-                        if (result.unchanged() > 0) {
-                            msg.append(", ").append(result.unchanged()).append(" unchanged");
-                        }
-                        String statusMsg = "Import complete: " + msg;
-                        statusLabel.setText(statusMsg);
-
-                        // Show summary dialog
-                        Alert summary = new Alert(result.hasErrors() ? Alert.AlertType.WARNING : Alert.AlertType.INFORMATION);
-                        summary.setTitle("CSV Import Results");
-                        summary.setHeaderText(statusMsg);
-                        StringBuilder details = new StringBuilder();
-                        details.append("New patents added: ").append(result.imported()).append("\n");
-                        details.append("Existing patents updated: ").append(result.updated()).append("\n");
-                        details.append("Unchanged (already up to date): ").append(result.unchanged()).append("\n");
-                        if (result.hasErrors()) {
-                            details.append("\nErrors (").append(result.errors().size()).append("):\n");
-                            result.errors().stream().limit(10).forEach(e -> details.append("  ").append(e).append("\n"));
-                            if (result.errors().size() > 10) {
-                                details.append("  ... and ").append(result.errors().size() - 10).append(" more");
-                            }
-                        }
-                        summary.setContentText(details.toString());
-                        summary.showAndWait();
-
-                        patentListController.refreshData();
-                        patentListController.loadTagFilter();
-                    });
-                } catch (Exception e) {
-                    Platform.runLater(() -> {
-                        statusLabel.setText("Import failed");
-                        Alert alert = new Alert(Alert.AlertType.ERROR);
-                        alert.setTitle("Import Error");
-                        alert.setHeaderText("Failed to import CSV");
-                        alert.setContentText(e.getMessage());
-                        alert.showAndWait();
-                    });
+                    return importService.importCsv(file.getAbsolutePath());
                 }
-            }).start();
+            };
+
+            task.setOnSucceeded(event -> {
+                CsvImportService.ImportResult result = task.getValue();
+                StringBuilder msg = new StringBuilder();
+                msg.append(result.imported()).append(" new");
+                if (result.updated() > 0) {
+                    msg.append(", ").append(result.updated()).append(" updated");
+                }
+                if (result.unchanged() > 0) {
+                    msg.append(", ").append(result.unchanged()).append(" unchanged");
+                }
+                String statusMsg = "Import complete: " + msg;
+                statusLabel.setText(statusMsg);
+
+                // Show summary dialog
+                Alert summary = new Alert(result.hasErrors() ? Alert.AlertType.WARNING : Alert.AlertType.INFORMATION);
+                summary.setTitle("CSV Import Results");
+                summary.setHeaderText(statusMsg);
+                StringBuilder details = new StringBuilder();
+                details.append("New patents added: ").append(result.imported()).append("\n");
+                details.append("Existing patents updated: ").append(result.updated()).append("\n");
+                details.append("Unchanged (already up to date): ").append(result.unchanged()).append("\n");
+                if (result.hasErrors()) {
+                    details.append("\nErrors (").append(result.errors().size()).append("):\n");
+                    result.errors().stream().limit(10).forEach(err -> details.append("  ").append(err).append("\n"));
+                    if (result.errors().size() > 10) {
+                        details.append("  ... and ").append(result.errors().size() - 10).append(" more");
+                    }
+                }
+                summary.setContentText(details.toString());
+                summary.showAndWait();
+
+                patentListController.refreshData();
+                patentListController.loadTagFilter();
+            });
+
+            task.setOnFailed(event -> {
+                Throwable ex = task.getException();
+                statusLabel.setText("Import failed");
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Import Error");
+                alert.setHeaderText("Failed to import CSV");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            });
+
+            Thread.ofVirtual().start(task);
         }
     }
 
@@ -118,28 +124,33 @@ public class MainController {
     private void handleAutoTag() {
         statusLabel.setText("Running AI auto-tagger...");
 
-        new Thread(() -> {
-            try {
+        var task = new Task<AutoTagService.AutoTagResult>() {
+            @Override
+            protected AutoTagService.AutoTagResult call() throws Exception {
                 AutoTagService autoTagService = new AutoTagService();
-                AutoTagService.AutoTagResult result = autoTagService.autoTagAll();
-
-                Platform.runLater(() -> {
-                    statusLabel.setText("Auto-tagged " + result.patentsTagged() + " of "
-                            + result.totalPatents() + " patents (" + result.tagsApplied() + " tags applied)");
-                    patentListController.refreshData();
-                    patentListController.loadTagFilter();
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    statusLabel.setText("Auto-tag failed");
-                    Alert alert = new Alert(Alert.AlertType.ERROR);
-                    alert.setTitle("Auto-Tag Error");
-                    alert.setHeaderText("Failed to auto-tag patents");
-                    alert.setContentText(e.getMessage());
-                    alert.showAndWait();
-                });
+                return autoTagService.autoTagAll();
             }
-        }).start();
+        };
+
+        task.setOnSucceeded(event -> {
+            AutoTagService.AutoTagResult result = task.getValue();
+            statusLabel.setText("Auto-tagged " + result.patentsTagged() + " of "
+                    + result.totalPatents() + " patents (" + result.tagsApplied() + " tags applied)");
+            patentListController.refreshData();
+            patentListController.loadTagFilter();
+        });
+
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            statusLabel.setText("Auto-tag failed");
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Auto-Tag Error");
+            alert.setHeaderText("Failed to auto-tag patents");
+            alert.setContentText(ex.getMessage());
+            alert.showAndWait();
+        });
+
+        Thread.ofVirtual().start(task);
     }
 
     @FXML

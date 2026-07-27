@@ -104,6 +104,11 @@ public class AutoTagService {
         this.tagDao = new TagDao();
     }
 
+    public AutoTagService(PatentDao patentDao, TagDao tagDao) {
+        this.patentDao = patentDao;
+        this.tagDao = tagDao;
+    }
+
     public AutoTagResult autoTagAll() throws SQLException {
         List<Patent> patents = patentDao.findAll();
         int tagged = 0;

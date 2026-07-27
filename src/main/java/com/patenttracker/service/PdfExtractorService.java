@@ -1,6 +1,5 @@
 package com.patenttracker.service;
 
-import com.patenttracker.controller.SettingsController;
 import com.patenttracker.dao.PatentDao;
 import com.patenttracker.dao.PatentTextDao;
 import com.patenttracker.model.Patent;
@@ -23,6 +22,11 @@ public class PdfExtractorService {
     public PdfExtractorService() {
         this.patentDao = new PatentDao();
         this.patentTextDao = new PatentTextDao();
+    }
+
+    public PdfExtractorService(PatentDao patentDao, PatentTextDao patentTextDao) {
+        this.patentDao = patentDao;
+        this.patentTextDao = patentTextDao;
     }
 
     public ExtractionResult extractText(Patent patent) {
@@ -52,10 +56,11 @@ public class PdfExtractorService {
             String text = stripper.getText(doc);
             int pageCount = doc.getNumberOfPages();
 
-            PatentText pt = new PatentText();
-            pt.setPatentId(patent.getId());
-            pt.setFullText(text);
-            pt.setPageCount(pageCount);
+            PatentText pt = PatentText.builder()
+                    .patentId(patent.getId())
+                    .fullText(text)
+                    .pageCount(pageCount)
+                    .build();
             patentTextDao.insert(pt);
 
             return new ExtractionResult(patent.getFileNumber(), patent.getTitle(),
@@ -68,7 +73,7 @@ public class PdfExtractorService {
     }
 
     public List<ExtractionResult> extractAll(ExtractionProgressCallback callback) {
-        int delay = SettingsController.getRateLimitDelay();
+        int delay = ConfigService.getInstance().getRateLimitDelay();
         List<ExtractionResult> results = new ArrayList<>();
 
         try {
