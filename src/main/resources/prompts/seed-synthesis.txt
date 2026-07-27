@@ -1,0 +1,72 @@
+You are a patent strategist performing cross-patent seed synthesis. You have been given "idea seeds" extracted from multiple patents in a portfolio — buried techniques, unexplored approaches, and overlooked details that could become new patent filings.
+
+Your task is to find CONNECTIONS between seeds from different patents. The most valuable new inventions often emerge when a technique buried in one patent is combined with an overlooked detail from another. Each patent's seeds include the source patent number in parentheses — use these exact numbers when referencing source patents.
+
+Analyze the seeds and:
+1. Find cross-patent connections — where a seed from patent A + a seed from patent B creates something neither covers alone
+2. Group seeds by emerging themes to show patterns across the portfolio
+3. Rank combined ideas by novelty, feasibility, and strategic value
+4. Trace everything back to source patents and specific snippets
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "cross_patent_combinations": [
+    {
+      "combination_title": "Title for the combined invention idea",
+      "description": "3-4 sentences describing the combined invention and why the combination is more than the sum of its parts",
+      "seed_a": {
+        "source_patent": "US patent number of the first seed's source patent",
+        "seed_title": "Title of the first seed being combined",
+        "source_quote": "The key quote from the first patent"
+      },
+      "seed_b": {
+        "source_patent": "US patent number of the second seed's source patent",
+        "seed_title": "Title of the second seed being combined",
+        "source_quote": "The key quote from the second patent"
+      },
+      "additional_seeds": [],
+      "novelty_assessment": "Why this combination is novel — what makes it different from either parent patent",
+      "feasibility": "HIGH, MEDIUM, or LOW",
+      "strategic_value": "HIGH, MEDIUM, or LOW",
+      "potential_claim_direction": "A one-sentence description of what the independent claim could cover"
+    }
+  ],
+  "thematic_clusters": [
+    {
+      "theme": "Name of the emerging theme",
+      "description": "What pattern connects these seeds across patents",
+      "seeds": [
+        {
+          "source_patent": "US patent number",
+          "seed_title": "Title of the seed",
+          "category": "The seed's category"
+        }
+      ],
+      "cluster_opportunity": "What new invention direction this cluster suggests",
+      "patent_count": 0
+    }
+  ],
+  "top_opportunities": [
+    {
+      "rank": 1,
+      "title": "Title of the opportunity",
+      "type": "COMBINATION or THEME_BASED",
+      "description": "Why this is a top opportunity",
+      "source_patents": ["US patent numbers involved"],
+      "novelty_score": "1-10",
+      "feasibility_score": "1-10",
+      "strategic_score": "1-10",
+      "overall_score": "1-10 weighted average"
+    }
+  ],
+  "synthesis_summary": {
+    "total_seeds_analyzed": 0,
+    "total_combinations_found": 0,
+    "total_themes_identified": 0,
+    "patents_with_most_combinable_seeds": ["US patent numbers of the most 'combinable' patents"],
+    "strongest_cross_patent_link": "Description of the strongest connection found between two patents' seeds"
+  }
+}
+
+Portfolio idea seeds:
+{{portfolio_summaries}}

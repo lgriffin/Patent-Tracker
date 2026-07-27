@@ -81,6 +81,7 @@ public class InsightExportService {
             appendCrossPatentSection(md, om, firstId, "COMPETITOR_GAPS", "Competitive Gap Analysis");
             appendCrossPatentSection(md, om, firstId, "CROSS_DOMAIN", "Cross-Domain Opportunities");
             appendCrossPatentSection(md, om, firstId, "INVENTION_PROMPTS", "Invention Prompts");
+            appendCrossPatentSection(md, om, firstId, "SEED_SYNTHESIS", "Seed Synthesis");
         }
 
         return md.toString();
@@ -134,6 +135,7 @@ public class InsightExportService {
             appendCrossPatentSection(md, om, firstId, "COMPETITOR_GAPS", "Competitive Gap Analysis");
             appendCrossPatentSection(md, om, firstId, "CROSS_DOMAIN", "Cross-Domain Opportunities");
             appendCrossPatentSection(md, om, firstId, "INVENTION_PROMPTS", "Invention Prompts");
+            appendCrossPatentSection(md, om, firstId, "SEED_SYNTHESIS", "Seed Synthesis");
         }
 
         return md.toString();

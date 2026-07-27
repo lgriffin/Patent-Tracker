@@ -1,0 +1,70 @@
+You are synthesizing multiple partial seed synthesis analyses of a patent portfolio into a single coherent result. Each partial analysis examined idea seeds from a different subset of the portfolio.
+
+Your task:
+1. Merge "cross_patent_combinations" — deduplicate by combination_title similarity, keep the best version with complete source tracing. Look for NEW combinations that become possible now that you can see seeds from all chunks
+2. Merge "thematic_clusters" — combine clusters with the same or similar theme, merge their seed lists, and update patent_count
+3. Re-rank "top_opportunities" across all partial results using a unified scoring
+4. Recompute "synthesis_summary" across the full portfolio
+
+Return your response as JSON only (no markdown fences, no extra text) with this EXACT structure:
+{
+  "cross_patent_combinations": [
+    {
+      "combination_title": "Title for the combined invention idea",
+      "description": "3-4 sentences describing the combined invention",
+      "seed_a": {
+        "source_patent": "US patent number",
+        "seed_title": "Title of the first seed",
+        "source_quote": "Key quote from the first patent"
+      },
+      "seed_b": {
+        "source_patent": "US patent number",
+        "seed_title": "Title of the second seed",
+        "source_quote": "Key quote from the second patent"
+      },
+      "additional_seeds": [],
+      "novelty_assessment": "Why this combination is novel",
+      "feasibility": "HIGH, MEDIUM, or LOW",
+      "strategic_value": "HIGH, MEDIUM, or LOW",
+      "potential_claim_direction": "Independent claim direction"
+    }
+  ],
+  "thematic_clusters": [
+    {
+      "theme": "Name of the theme",
+      "description": "What connects these seeds",
+      "seeds": [
+        {
+          "source_patent": "US patent number",
+          "seed_title": "Seed title",
+          "category": "Seed category"
+        }
+      ],
+      "cluster_opportunity": "New invention direction",
+      "patent_count": 0
+    }
+  ],
+  "top_opportunities": [
+    {
+      "rank": 1,
+      "title": "Title",
+      "type": "COMBINATION or THEME_BASED",
+      "description": "Why this is a top opportunity",
+      "source_patents": ["US patent numbers"],
+      "novelty_score": "1-10",
+      "feasibility_score": "1-10",
+      "strategic_score": "1-10",
+      "overall_score": "1-10"
+    }
+  ],
+  "synthesis_summary": {
+    "total_seeds_analyzed": 0,
+    "total_combinations_found": 0,
+    "total_themes_identified": 0,
+    "patents_with_most_combinable_seeds": ["US patent numbers"],
+    "strongest_cross_patent_link": "Description"
+  }
+}
+
+Partial analysis results from different portfolio chunks:
+{{chunk_results}}

@@ -133,6 +133,21 @@ public class PortfolioAnalyzer {
                 summaryBuilder, Map.of(), callback);
     }
 
+    public InsightService.InsightResult analyzeSeedSynthesis(List<Patent> patents) {
+        return analyzeSeedSynthesis(patents, null);
+    }
+
+    public InsightService.InsightResult analyzeSeedSynthesis(List<Patent> patents,
+                                                              InsightService.CrossPatentProgressCallback callback) {
+        List<PatentTechPair> pairs = buildPatentSeedPairs(patents);
+        if (pairs.size() < 2) {
+            return new InsightService.InsightResult(false, "SEED_SYNTHESIS", null,
+                    "Need at least 2 patents with Idea Seeds analysis. Run 'Run Idea Seeds' first. Found: " + pairs.size(), 0);
+        }
+        return runChunkedOrDirect(pairs, patents, "SEED_SYNTHESIS", "seed-synthesis",
+                buildPlainSummary(), Map.of(), callback);
+    }
+
     public InsightService.InsightResult analyzeInventionPrompts(List<Patent> patents) {
         return analyzeInventionPrompts(patents, null);
     }
@@ -164,6 +179,22 @@ public class PortfolioAnalyzer {
 
         return runChunkedOrDirect(pairs, patents, "INVENTION_PROMPTS", "invention-prompts",
                 summaryBuilder, extraVars, callback);
+    }
+
+    List<PatentTechPair> buildPatentSeedPairs(List<Patent> patents) {
+        List<PatentTechPair> pairs = new ArrayList<>();
+        for (Patent patent : patents) {
+            try {
+                PatentAnalysis seedAnalysis = patentAnalysisDao.findByPatentIdAndType(
+                        patent.getId(), "IDEA_SEEDS");
+                if (seedAnalysis != null) {
+                    pairs.add(new PatentTechPair(patent, seedAnalysis.getResultJson()));
+                }
+            } catch (SQLException e) {
+                // Skip
+            }
+        }
+        return pairs;
     }
 
     private Function<List<PatentTechPair>, String> buildPlainSummary() {

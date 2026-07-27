@@ -48,6 +48,8 @@ public class InsightsController {
     @FXML private Button analyzeClaimsButton;
     @FXML private Button analyzeExpansionButton;
     @FXML private Button analyzePriorArtButton;
+    @FXML private Button analyzeIdeaSeedsButton;
+    @FXML private Button seedSynthesisButton;
     @FXML private Button exportButton;
     @FXML private Button exportCrossButton;
     @FXML private ProgressBar progressBar;
@@ -66,6 +68,8 @@ public class InsightsController {
     @FXML private Label competitorCountLabel;
     @FXML private Label inventionCountLabel;
     @FXML private Label crossDomainCountLabel;
+    @FXML private Label ideaSeedsCountLabel;
+    @FXML private Label seedSynthesisCountLabel;
 
     @FXML private Accordion resultsAccordion;
 
@@ -95,6 +99,7 @@ public class InsightsController {
         technologyCountLabel.setText(String.valueOf(byType.getOrDefault("TECHNOLOGY", 0)));
         expansionCountLabel.setText(String.valueOf(byType.getOrDefault("EXPANSION", 0)));
         priorArtCountLabel.setText(String.valueOf(byType.getOrDefault("PRIOR_ART", 0)));
+        ideaSeedsCountLabel.setText(String.valueOf(byType.getOrDefault("IDEA_SEEDS", 0)));
 
         refreshPortfolioStatus(whitespaceCountLabel, "WHITESPACE");
         refreshPortfolioStatus(clusteringCountLabel, "CLUSTERING");
@@ -104,6 +109,7 @@ public class InsightsController {
         refreshPortfolioStatus(competitorCountLabel, "COMPETITOR_GAPS");
         refreshPortfolioStatus(inventionCountLabel, "INVENTION_PROMPTS");
         refreshPortfolioStatus(crossDomainCountLabel, "CROSS_DOMAIN");
+        refreshPortfolioStatus(seedSynthesisCountLabel, "SEED_SYNTHESIS");
 
         loadCrossPatentResults();
     }
@@ -251,6 +257,11 @@ public class InsightsController {
         runBatchPerPatentAnalysis("Prior Art Analysis", "PRIOR_ART", "prior-art");
     }
 
+    @FXML
+    public void handleAnalyzeIdeaSeeds() {
+        runBatchPerPatentAnalysis("Idea Seeds", "IDEA_SEEDS", "idea-seeds");
+    }
+
     private void runBatchPerPatentAnalysis(String label, String analysisType, String templateName) {
         if (!new ClaudeCliService().isAvailable()) {
             progressLabel.setText("Claude CLI not found. Configure it in Settings.");
@@ -357,6 +368,11 @@ public class InsightsController {
         runCrossPatentAnalysis("Cross-Domain Combinator", "CROSS_DOMAIN");
     }
 
+    @FXML
+    private void handleSeedSynthesis() {
+        runCrossPatentAnalysis("Seed Synthesis", "SEED_SYNTHESIS");
+    }
+
     private void runCrossPatentAnalysis(String label, String analysisType) {
         if (!new ClaudeCliService().isAvailable()) {
             progressLabel.setText("Claude CLI not found. Configure it in Settings.");
@@ -428,6 +444,7 @@ public class InsightsController {
                     case "COMPETITOR_GAPS" -> insightService.analyzeCompetitorGaps(patents, progressCallback);
                     case "INVENTION_PROMPTS" -> insightService.analyzeInventionPrompts(patents, progressCallback);
                     case "CROSS_DOMAIN" -> insightService.analyzeCrossDomain(patents, progressCallback);
+                    case "SEED_SYNTHESIS" -> insightService.analyzeSeedSynthesis(patents, progressCallback);
                     default -> new InsightService.InsightResult(false, analysisType, null, "Unknown type", 0);
                 };
             }
@@ -594,6 +611,8 @@ public class InsightsController {
         competitorButton.setDisable(running);
         inventionButton.setDisable(running);
         crossDomainButton.setDisable(running);
+        analyzeIdeaSeedsButton.setDisable(running);
+        seedSynthesisButton.setDisable(running);
         exportButton.setDisable(running);
         exportCrossButton.setDisable(running);
         cancelButton.setManaged(running);
@@ -615,6 +634,7 @@ public class InsightsController {
             addAnalysisPane(firstId, "COMPETITOR_GAPS", "Competitor Gaps");
             addAnalysisPane(firstId, "INVENTION_PROMPTS", "Invention Prompts");
             addAnalysisPane(firstId, "CROSS_DOMAIN", "Cross-Domain Combinator");
+            addAnalysisPane(firstId, "SEED_SYNTHESIS", "Seed Synthesis");
         } catch (SQLException e) {
             // Skip loading results
         }

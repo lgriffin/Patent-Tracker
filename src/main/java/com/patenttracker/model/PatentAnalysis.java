@@ -41,7 +41,9 @@ public final class PatentAnalysis {
         CLAIM_COLLISION("Claim Collision"),
         COMPETITOR_GAPS("Competitor Gaps"),
         INVENTION_PROMPTS("Invention Prompts"),
-        CROSS_DOMAIN("Cross-Domain Combinator");
+        CROSS_DOMAIN("Cross-Domain Combinator"),
+        IDEA_SEEDS("Idea Seeds"),
+        SEED_SYNTHESIS("Seed Synthesis");
 
         private final String displayLabel;
 
