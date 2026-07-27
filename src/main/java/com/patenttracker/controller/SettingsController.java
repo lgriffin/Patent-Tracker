@@ -132,6 +132,7 @@ public class SettingsController {
         Properties props = loadProperties();
         props.setProperty("owner.name", ownerName.trim());
         saveProperties(props);
+        com.patenttracker.service.ConfigService.getInstance().reload();
         saved = true;
 
         ownerStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");
@@ -150,6 +151,7 @@ public class SettingsController {
         Properties props = loadProperties();
         props.setProperty("uspto.api.key", apiKeyField.getText());
         saveProperties(props);
+        com.patenttracker.service.ConfigService.getInstance().reload();
         saved = true;
 
         apiKeyStatusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 11px;");

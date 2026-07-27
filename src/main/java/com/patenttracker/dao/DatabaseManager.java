@@ -55,6 +55,9 @@ public class DatabaseManager {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("PRAGMA journal_mode=WAL");
             stmt.execute("PRAGMA foreign_keys=ON");
+        } catch (SQLException e) {
+            conn.close();
+            throw e;
         }
         return conn;
     }

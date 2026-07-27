@@ -67,7 +67,8 @@ public class SinglePatentAnalyzer {
                     "patent_text", text
             );
 
-            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables);
+            int timeoutSeconds = ConfigService.getInstance().getAnalysisTimeout();
+            ClaudeCliService.AnalysisResult cliResult = claudeCliService.analyze(template, variables, timeoutSeconds);
 
             if (cliResult.success() && cliResult.resultJson() != null) {
                 PatentAnalysis pa = PatentAnalysis.builder()
