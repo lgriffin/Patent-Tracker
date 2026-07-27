@@ -67,6 +67,10 @@
                     onAction="#handleAnalyzePriorArt" styleClass="primary-button">
                 <tooltip><Tooltip text="Run AI prior art vulnerability assessment on each patent individually" wrapText="true" maxWidth="300"/></tooltip>
             </Button>
+            <Button fx:id="analyzeIdeaSeedsButton" text="Run Idea Seeds"
+                    onAction="#handleAnalyzeIdeaSeeds" styleClass="primary-button">
+                <tooltip><Tooltip text="Mine each patent's full text for buried techniques, unexplored approaches, and overlooked details that could become new filings" wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
         </HBox>
 
         <!-- Progress -->
@@ -114,6 +118,10 @@
                     onAction="#handleCrossDomain" styleClass="primary-button">
                 <tooltip><Tooltip text="Find novel inventions by combining technology domains from different parts of the portfolio" wrapText="true" maxWidth="300"/></tooltip>
             </Button>
+            <Button fx:id="seedSynthesisButton" text="Seed Synthesis"
+                    onAction="#handleSeedSynthesis" styleClass="primary-button">
+                <tooltip><Tooltip text="Combine idea seeds from different patents to find cross-patent invention opportunities. Requires Idea Seeds analysis first." wrapText="true" maxWidth="300"/></tooltip>
+            </Button>
         </HBox>
 
         <Separator/>
@@ -146,6 +154,12 @@
                     <tooltip><Tooltip text="Assesses novelty and identifies potential prior art vulnerabilities for each patent" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Prior Art" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="ideaSeedsCountLabel" text="0" styleClass="stat-value" style="-fx-font-size: 22px;">
+                    <tooltip><Tooltip text="Mines patent text for buried techniques, unexplored approaches, and details that could become standalone patents" wrapText="true" maxWidth="300"/></tooltip>
+                </Label>
+                <Label text="Idea Seeds" styleClass="stat-label"/>
             </VBox>
         </HBox>
 
@@ -203,6 +217,12 @@
                     <tooltip><Tooltip text="Novel inventions that emerge from combining technology domains across different parts of the portfolio" wrapText="true" maxWidth="300"/></tooltip>
                 </Label>
                 <Label text="Cross-Domain" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="seedSynthesisCountLabel" text="Not run" styleClass="stat-value" style="-fx-font-size: 16px; -fx-text-fill: #999;">
+                    <tooltip><Tooltip text="Cross-patent synthesis that combines idea seeds from different patents to find novel combination opportunities" wrapText="true" maxWidth="300"/></tooltip>
+                </Label>
+                <Label text="Seed Synthesis" styleClass="stat-label"/>
             </VBox>
         </HBox>
 

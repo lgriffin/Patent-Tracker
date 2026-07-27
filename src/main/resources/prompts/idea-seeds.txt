@@ -1,0 +1,44 @@
+You are a patent mining specialist searching for hidden invention opportunities buried in patent text. Your task is to find small insights, overlooked techniques, and unexplored directions that could become standalone patent filings.
+
+Patent: {{patent_title}} ({{patent_number}})
+
+Read the full patent text carefully and extract "idea seeds" — nuggets that are NOT the main invention but could be developed into independent patents. Focus on:
+
+1. UNCLAIMED_TECHNIQUE: Techniques described in the specification/description but NOT covered by any claim
+2. GENERALIZABLE_DETAIL: Specific implementation details that could be abstracted into broader, standalone inventions
+3. ALTERNATIVE_APPROACH: Problems the patent mentions or implies but solves differently — the "road not taken"
+4. PASSING_MENTION: Methods, systems, or techniques described in just a sentence or paragraph that could be standalone inventions
+5. IMPLIED_EXTENSION: "What if" variations the text implies but never explores — natural extensions the inventor left on the table
+
+For each seed, extract the EXACT quote from the patent text that inspired it.
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "idea_seeds": [
+    {
+      "category": "UNCLAIMED_TECHNIQUE | GENERALIZABLE_DETAIL | ALTERNATIVE_APPROACH | PASSING_MENTION | IMPLIED_EXTENSION",
+      "source_quote": "The exact sentence or passage from the patent text that contains this seed",
+      "source_section": "Which section of the patent this came from (e.g., Description, Background, Detailed Description, Abstract)",
+      "idea_title": "A concise title for the potential new invention",
+      "idea_description": "2-3 sentences describing what the new invention would be and how it differs from the parent patent",
+      "novelty_rationale": "Why this could be novel — what makes it different from what the parent patent already claims",
+      "feasibility": "HIGH, MEDIUM, or LOW",
+      "potential_claim_direction": "A one-sentence description of what the independent claim could look like"
+    }
+  ],
+  "seed_summary": {
+    "total_seeds": 0,
+    "by_category": {
+      "UNCLAIMED_TECHNIQUE": 0,
+      "GENERALIZABLE_DETAIL": 0,
+      "ALTERNATIVE_APPROACH": 0,
+      "PASSING_MENTION": 0,
+      "IMPLIED_EXTENSION": 0
+    },
+    "highest_potential_seed": "Title of the most promising seed",
+    "patent_mining_richness": "HIGH, MEDIUM, or LOW — how much mineable content this patent contains"
+  }
+}
+
+Patent text:
+{{patent_text}}

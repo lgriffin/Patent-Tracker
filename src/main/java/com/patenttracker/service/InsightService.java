@@ -98,6 +98,10 @@ public class InsightService {
         return singlePatentAnalyzer.analyzePriorArt(patent);
     }
 
+    public InsightResult analyzeIdeaSeeds(Patent patent) {
+        return singlePatentAnalyzer.analyzeIdeaSeeds(patent);
+    }
+
     // --- Cross-patent analysis (delegated to PortfolioAnalyzer) ---
 
     public InsightResult analyzeWhitespace(List<Patent> patents) {
@@ -162,6 +166,14 @@ public class InsightService {
 
     public InsightResult analyzeInventionPrompts(List<Patent> patents, CrossPatentProgressCallback callback) {
         return portfolioAnalyzer.analyzeInventionPrompts(patents, callback);
+    }
+
+    public InsightResult analyzeSeedSynthesis(List<Patent> patents) {
+        return portfolioAnalyzer.analyzeSeedSynthesis(patents);
+    }
+
+    public InsightResult analyzeSeedSynthesis(List<Patent> patents, CrossPatentProgressCallback callback) {
+        return portfolioAnalyzer.analyzeSeedSynthesis(patents, callback);
     }
 
     // --- Batch orchestration ---

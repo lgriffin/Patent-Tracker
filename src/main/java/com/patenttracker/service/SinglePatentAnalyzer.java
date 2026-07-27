@@ -51,6 +51,10 @@ public class SinglePatentAnalyzer {
         return runSinglePatentAnalysis(patent, "PRIOR_ART", "prior-art");
     }
 
+    public InsightService.InsightResult analyzeIdeaSeeds(Patent patent) {
+        return runSinglePatentAnalysis(patent, "IDEA_SEEDS", "idea-seeds");
+    }
+
     InsightService.InsightResult runSinglePatentAnalysis(Patent patent, String analysisType, String templateName) {
         String text = ensureTextExtracted(patent);
         if (text == null) {
