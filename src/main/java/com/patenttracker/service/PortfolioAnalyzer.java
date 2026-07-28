@@ -5,6 +5,9 @@ import com.patenttracker.dao.PatentDao;
 import com.patenttracker.model.Patent;
 import com.patenttracker.model.PatentAnalysis;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -144,8 +147,9 @@ public class PortfolioAnalyzer {
             return new InsightService.InsightResult(false, "SEED_SYNTHESIS", null,
                     "Need at least 2 patents with Idea Seeds analysis. Run 'Run Idea Seeds' first. Found: " + pairs.size(), 0);
         }
+        Function<List<PatentTechPair>, String> summaryBuilder = buildCondensedSeedSummary();
         return runChunkedOrDirect(pairs, patents, "SEED_SYNTHESIS", "seed-synthesis",
-                buildPlainSummary(), Map.of(), callback);
+                summaryBuilder, Map.of(), callback);
     }
 
     public InsightService.InsightResult analyzeInventionPrompts(List<Patent> patents) {
@@ -211,6 +215,50 @@ public class PortfolioAnalyzer {
             }
             return sb.toString();
         };
+    }
+
+    private Function<List<PatentTechPair>, String> buildCondensedSeedSummary() {
+        ObjectMapper om = new ObjectMapper();
+        return pairs -> {
+            StringBuilder sb = new StringBuilder();
+            for (PatentTechPair pair : pairs) {
+                Patent p = pair.patent();
+                String patentRef = p.getPatentNumber() != null ?
+                        p.getPatentNumber() : p.getApplicationNumber();
+                sb.append("Patent: ").append(p.getTitle())
+                        .append(" (").append(patentRef).append(")\n");
+                try {
+                    JsonNode root = om.readTree(pair.techJson());
+                    JsonNode seeds = root.get("idea_seeds");
+                    if (seeds != null && seeds.isArray()) {
+                        for (JsonNode seed : seeds) {
+                            sb.append("- [").append(textOf(seed, "category")).append("] ")
+                                    .append(textOf(seed, "idea_title")).append(": ")
+                                    .append(textOf(seed, "idea_description"))
+                                    .append(" | Novelty: ").append(textOf(seed, "novelty_rationale"))
+                                    .append(" | Feasibility: ").append(textOf(seed, "feasibility"))
+                                    .append(" | Claim: ").append(textOf(seed, "potential_claim_direction"))
+                                    .append("\n");
+                        }
+                    }
+                    JsonNode summary = root.get("seed_summary");
+                    if (summary != null) {
+                        sb.append("Richness: ").append(textOf(summary, "patent_mining_richness"))
+                                .append(" | Top seed: ").append(textOf(summary, "highest_potential_seed"))
+                                .append("\n");
+                    }
+                } catch (Exception e) {
+                    sb.append(pair.techJson()).append("\n");
+                }
+                sb.append("---\n");
+            }
+            return sb.toString();
+        };
+    }
+
+    private static String textOf(JsonNode node, String field) {
+        JsonNode val = node.get(field);
+        return val != null ? val.asText() : "";
     }
 
     List<PatentTechPair> buildPatentTechPairs(List<Patent> patents, boolean autoAnalyze) {

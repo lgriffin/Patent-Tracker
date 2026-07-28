@@ -14,13 +14,11 @@ Return your response as JSON only (no markdown fences, no extra text) with this 
       "description": "3-4 sentences describing the combined invention",
       "seed_a": {
         "source_patent": "US patent number",
-        "seed_title": "Title of the first seed",
-        "source_quote": "Key quote from the first patent"
+        "seed_title": "Title of the first seed"
       },
       "seed_b": {
         "source_patent": "US patent number",
-        "seed_title": "Title of the second seed",
-        "source_quote": "Key quote from the second patent"
+        "seed_title": "Title of the second seed"
       },
       "additional_seeds": [],
       "novelty_assessment": "Why this combination is novel",
