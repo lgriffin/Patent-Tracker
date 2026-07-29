@@ -149,7 +149,7 @@ public class PortfolioAnalyzer {
         }
         Function<List<PatentTechPair>, String> summaryBuilder = buildCondensedSeedSummary();
         return runChunkedOrDirect(pairs, patents, "SEED_SYNTHESIS", "seed-synthesis",
-                summaryBuilder, Map.of(), callback);
+                summaryBuilder, Map.of(), callback, 5);
     }
 
     public InsightService.InsightResult analyzeInventionPrompts(List<Patent> patents) {
@@ -296,12 +296,22 @@ public class PortfolioAnalyzer {
                                                             Function<List<PatentTechPair>, String> summaryBuilder,
                                                             Map<String, String> extraVariables,
                                                             InsightService.CrossPatentProgressCallback callback) {
+        return runChunkedOrDirect(pairs, allPatents, analysisType, templateName,
+                summaryBuilder, extraVariables, callback, -1);
+    }
+
+    private InsightService.InsightResult runChunkedOrDirect(List<PatentTechPair> pairs, List<Patent> allPatents,
+                                                            String analysisType, String templateName,
+                                                            Function<List<PatentTechPair>, String> summaryBuilder,
+                                                            Map<String, String> extraVariables,
+                                                            InsightService.CrossPatentProgressCallback callback,
+                                                            int batchSizeOverride) {
         if (pairs.size() < 2) {
             return new InsightService.InsightResult(false, analysisType, null,
                     "Need at least 2 patents with technology extraction. Found: " + pairs.size(), 0);
         }
 
-        int batchSize = ConfigService.getInstance().getBatchSize();
+        int batchSize = batchSizeOverride > 0 ? batchSizeOverride : ConfigService.getInstance().getBatchSize();
         int idleTimeout = ConfigService.getInstance().getIdleTimeout();
 
         ClaudeCliService.StreamingCallback streamCallback = callback == null ? null
