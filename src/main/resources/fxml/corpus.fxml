@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.patenttracker.controller.CorpusController"
+            fitToWidth="true">
+    <VBox spacing="15">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Patent Corpus Builder" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: #666;"/>
+        </HBox>
+
+        <Label text="Build a searchable local corpus of patent documents by domain. Download PDFs, extract text, chunk into searchable sections, and export training data."
+               wrapText="true" style="-fx-text-fill: #666;"/>
+
+        <Separator/>
+
+        <!-- Corpus Stats -->
+        <HBox spacing="15" alignment="CENTER">
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="totalDocsLabel" text="0" styleClass="stat-value"/>
+                <Label text="Documents" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="downloadedLabel" text="0" styleClass="stat-value"/>
+                <Label text="Downloaded" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="extractedLabel" text="0" styleClass="stat-value"/>
+                <Label text="Extracted" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="chunkedLabel" text="0" styleClass="stat-value"/>
+                <Label text="Chunked" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="totalChunksLabel" text="0" styleClass="stat-value"/>
+                <Label text="Total Chunks" styleClass="stat-label"/>
+            </VBox>
+            <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="totalWordsLabel" text="0" styleClass="stat-value"/>
+                <Label text="Total Words" styleClass="stat-label"/>
+            </VBox>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Domain Selection and Build Controls -->
+        <Label text="1. Build Corpus by Domain" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <ComboBox fx:id="domainCombo" prefWidth="300" promptText="Select a domain..."/>
+            <Button fx:id="buildButton" text="Build Corpus" onAction="#handleBuild"
+                    styleClass="primary-button"/>
+            <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
+                    styleClass="secondary-button" managed="false" visible="false"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="phaseLabel" text="" style="-fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <ProgressBar fx:id="progressBar" prefWidth="400" progress="0"/>
+            <Label fx:id="progressLabel" text=""/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Local Corpus Search -->
+        <Label text="2. Search Corpus" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <TextField fx:id="searchField" prefWidth="400" promptText="Enter search query..."/>
+            <ComboBox fx:id="sectionFilterCombo" prefWidth="180" promptText="All Sections"/>
+            <ComboBox fx:id="searchModeCombo" prefWidth="140" promptText="Keyword"/>
+            <Button fx:id="searchButton" text="Search" onAction="#handleSearch"
+                    styleClass="primary-button"/>
+        </HBox>
+
+        <!-- Search Results -->
+        <VBox fx:id="searchResultsBox" spacing="10" managed="false" visible="false">
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label fx:id="searchResultsLabel" text="" style="-fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="searchTypeLabel" text="" style="-fx-text-fill: #666;"/>
+            </HBox>
+            <TableView fx:id="searchResultsTable" prefHeight="300">
+                <columns>
+                    <TableColumn fx:id="srPatentCol" text="Patent #" prefWidth="130"/>
+                    <TableColumn fx:id="srSectionCol" text="Section" prefWidth="140"/>
+                    <TableColumn fx:id="srTextCol" text="Text Preview" prefWidth="500"/>
+                    <TableColumn fx:id="srWordsCol" text="Words" prefWidth="80"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Training Data Export -->
+        <Label text="3. Export Training Data" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <TextField fx:id="exportNameField" prefWidth="250" promptText="Export name..."/>
+            <ComboBox fx:id="exportFormatCombo" prefWidth="180" promptText="JSONL"/>
+            <CheckBox fx:id="includeMetadataCheck" text="Include metadata" selected="true"/>
+            <Button fx:id="exportButton" text="Export" onAction="#handleExport"
+                    styleClass="primary-button"/>
+        </HBox>
+        <Label fx:id="exportResultLabel" text="" wrapText="true" style="-fx-text-fill: #27ae60;"/>
+
+    </VBox>
+</ScrollPane>

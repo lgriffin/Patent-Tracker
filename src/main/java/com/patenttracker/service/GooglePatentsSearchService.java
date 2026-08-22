@@ -1,11 +1,13 @@
 package com.patenttracker.service;
 
 import com.patenttracker.dao.MinedPatentDao;
+import com.patenttracker.model.DiscoveredPatent;
 import com.patenttracker.model.MinedPatent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class GooglePatentsSearchService {
 
@@ -37,6 +40,7 @@ public class GooglePatentsSearchService {
 
     public GooglePatentsSearchService() {
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(15))
                 .build();
@@ -46,6 +50,7 @@ public class GooglePatentsSearchService {
     public GooglePatentsSearchService(MinedPatentDao minedPatentDao) {
         this.minedPatentDao = minedPatentDao;
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(15))
                 .build();
@@ -64,20 +69,12 @@ public class GooglePatentsSearchService {
             String xhrUrl = "https://patents.google.com/xhr/query?url="
                     + URLEncoder.encode(queryParam, StandardCharsets.UTF_8);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(xhrUrl))
-                    .header("User-Agent", USER_AGENT)
-                    .header("Accept", "application/json")
-                    .timeout(REQUEST_TIMEOUT)
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = null;
+            CurlResponse response = null;
             for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
                 if (callback != null && callback.isCancelled()) {
                     return new SearchResult(false, area, 0, List.of(), "Search cancelled.");
                 }
-                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                response = fetchViaCurl(xhrUrl);
                 if (response.statusCode() == 429 || response.statusCode() == 503) {
                     if (attempt < MAX_RETRIES) {
                         long delay = RETRY_BASE_DELAY_MS * (1L << attempt);
@@ -217,6 +214,53 @@ public class GooglePatentsSearchService {
         return results;
     }
 
+    private record CurlResponse(int statusCode, String body) {}
+
+    private CurlResponse fetchViaCurl(String url) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(
+                "curl", "-s", "-w", "\n%{http_code}",
+                "--connect-timeout", "15",
+                "--max-time", "30",
+                "-H", "User-Agent: " + USER_AGENT,
+                "-H", "Accept: application/json",
+                "-H", "Accept-Language: en-US,en;q=0.9",
+                "-H", "Referer: https://patents.google.com/",
+                url
+        );
+        pb.redirectErrorStream(true);
+        Process proc = pb.start();
+        String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        boolean finished = proc.waitFor(45, TimeUnit.SECONDS);
+        if (!finished) {
+            proc.destroyForcibly();
+            return new CurlResponse(0, "");
+        }
+        int lastNewline = output.lastIndexOf('\n');
+        if (lastNewline < 0) return new CurlResponse(0, output);
+        String body = output.substring(0, lastNewline);
+        int statusCode;
+        try {
+            statusCode = Integer.parseInt(output.substring(lastNewline + 1).trim());
+        } catch (NumberFormatException e) {
+            statusCode = 0;
+        }
+        return new CurlResponse(statusCode, body);
+    }
+
+    private HttpRequest buildXhrRequest(String xhrUrl) {
+        return HttpRequest.newBuilder()
+                .uri(URI.create(xhrUrl))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/json")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("Accept-Encoding", "gzip, deflate, br")
+                .header("Referer", "https://patents.google.com/")
+                .header("DNT", "1")
+                .timeout(REQUEST_TIMEOUT)
+                .GET()
+                .build();
+    }
+
     private String getTextOrNull(JsonNode node, String field) {
         JsonNode val = node.get(field);
         if (val == null || val.isNull()) return null;
@@ -237,4 +281,82 @@ public class GooglePatentsSearchService {
         void onStatus(String status);
         boolean isCancelled();
     }
+
+    public PriorArtSearchResult searchForPriorArt(List<String> queries, SearchProgressCallback callback) {
+        List<DiscoveredPatent> allResults = new ArrayList<>();
+        Set<String> seenNumbers = new java.util.HashSet<>();
+        int rateLimitDelay = ConfigService.getInstance().getRateLimitDelay();
+
+        for (int qi = 0; qi < queries.size(); qi++) {
+            String query = queries.get(qi);
+            if (callback != null && callback.isCancelled()) break;
+
+            if (callback != null) callback.onStatus("Google Patents: searching \"" + query + "\" (" + (qi + 1) + "/" + queries.size() + ")...");
+
+            // Rate-limit delay between queries (skip first)
+            if (qi > 0) {
+                try { Thread.sleep(Math.max(rateLimitDelay, 5000)); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            }
+
+            LocalDate toDate = LocalDate.now();
+            LocalDate fromDate = toDate.minusYears(5);
+
+            try {
+                String queryParam = buildQueryParam(query, fromDate, toDate);
+                String xhrUrl = "https://patents.google.com/xhr/query?url="
+                        + URLEncoder.encode(queryParam, StandardCharsets.UTF_8);
+
+                CurlResponse response = null;
+                for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                    if (callback != null && callback.isCancelled()) break;
+                    response = fetchViaCurl(xhrUrl);
+                    if (response.statusCode() == 429 || response.statusCode() == 503) {
+                        if (attempt < MAX_RETRIES) {
+                            long delay = RETRY_BASE_DELAY_MS * (1L << attempt);
+                            if (callback != null) {
+                                callback.onStatus("Rate limited, retrying in " + (delay / 1000) + "s...");
+                            }
+                            Thread.sleep(delay);
+                            continue;
+                        }
+                    }
+                    break;
+                }
+
+                if (response != null && response.statusCode() == 200) {
+                    List<MinedPatent> parsed = parseXhrResults(response.body(), query, query);
+                    int added = 0;
+                    for (MinedPatent mp : parsed) {
+                        if (seenNumbers.add(mp.getPatentNumber())) {
+                            DiscoveredPatent dp = DiscoveredPatent.builder()
+                                    .patentNumber(mp.getPatentNumber())
+                                    .title(mp.getTitle())
+                                    .abstractText(mp.getAbstractText())
+                                    .grantDate(mp.getGrantDate())
+                                    .source(DiscoveredPatent.Source.GOOGLE_PATENTS.name())
+                                    .build();
+                            allResults.add(dp);
+                            added++;
+                        }
+                    }
+                    if (callback != null) callback.onStatus("  Found " + added + " new patents (" + allResults.size() + " total)");
+                } else if (response != null) {
+                    if (callback != null) callback.onStatus("  Query failed with HTTP " + response.statusCode() + ", skipping.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                if (callback != null) callback.onStatus("  Query error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+            }
+        }
+
+        if (callback != null) {
+            callback.onStatus("Google Patents found " + allResults.size() + " unique patents.");
+        }
+        return new PriorArtSearchResult(!allResults.isEmpty() || queries.isEmpty(), allResults, null);
+    }
+
+    public record PriorArtSearchResult(boolean success, List<DiscoveredPatent> patents, String error) {}
 }

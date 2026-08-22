@@ -46,6 +46,12 @@
             <Tab text="Patent Mining" fx:id="miningTab">
                 <fx:include source="mining.fxml" fx:id="mining"/>
             </Tab>
+            <Tab text="Prior Art Search" fx:id="priorArtTab">
+                <fx:include source="prior-art.fxml" fx:id="priorArt"/>
+            </Tab>
+            <Tab text="Patent Corpus" fx:id="corpusTab">
+                <fx:include source="corpus.fxml" fx:id="corpus"/>
+            </Tab>
         </TabPane>
     </center>
 

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<ScrollPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.patenttracker.controller.PriorArtController"
+            fitToWidth="true">
+    <VBox spacing="15">
+        <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Prior Art Search" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="exportButton" text="Export Report"
+                    onAction="#handleExport" styleClass="secondary-button" disable="true"/>
+        </HBox>
+
+        <Label text="Enter a high-level invention idea to search patent databases for prior art and receive suggestions to make it unique."
+               wrapText="true" style="-fx-text-fill: #666;"/>
+
+        <Separator/>
+
+        <!-- Idea Input -->
+        <Label text="1. Describe Your Invention Idea" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <TextArea fx:id="ideaTextArea" prefRowCount="6" promptText="Describe your invention idea in detail. Include the technical problem it solves, the approach or mechanism, and any key components or steps..."
+                  wrapText="true"/>
+
+        <Separator/>
+
+        <!-- Search Controls -->
+        <Label text="2. Search and Analyze" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="searchButton" text="Search Prior Art" onAction="#handleSearch"
+                    styleClass="primary-button"/>
+            <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
+                    styleClass="secondary-button" managed="false" visible="false"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="phaseLabel" text="" style="-fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <ProgressBar fx:id="progressBar" prefWidth="400" progress="0"/>
+            <Label fx:id="progressLabel" text="Ready"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Results Section (hidden until search completes) -->
+        <VBox fx:id="resultsBox" spacing="15" managed="false" visible="false">
+
+            <!-- Decomposition -->
+            <TitledPane fx:id="decomposePane" text="Idea Decomposition" expanded="false">
+                <VBox fx:id="decomposeContent" spacing="8">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                </VBox>
+            </TitledPane>
+
+            <!-- Discovered Patents -->
+            <TitledPane fx:id="patentsPane" text="Prior Art Found" expanded="true">
+                <VBox spacing="8">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                    <HBox spacing="15" alignment="CENTER">
+                        <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                            <Label fx:id="patentsFoundLabel" text="0" styleClass="stat-value"/>
+                            <Label text="Patents Found" styleClass="stat-label"/>
+                        </VBox>
+                        <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                            <Label fx:id="googleCountLabel" text="0" styleClass="stat-value"/>
+                            <Label text="Google Patents" styleClass="stat-label"/>
+                        </VBox>
+                        <VBox styleClass="stat-card" alignment="CENTER" spacing="2" HBox.hgrow="ALWAYS">
+                            <Label fx:id="patentsViewCountLabel" text="0" styleClass="stat-value"/>
+                            <Label text="PatentsView" styleClass="stat-label"/>
+                        </VBox>
+                    </HBox>
+                    <TableView fx:id="discoveredTable" prefHeight="250">
+                        <columns>
+                            <TableColumn fx:id="patentNumCol" text="Patent #" prefWidth="130"/>
+                            <TableColumn fx:id="titleCol" text="Title" prefWidth="350"/>
+                            <TableColumn fx:id="sourceCol" text="Source" prefWidth="120"/>
+                            <TableColumn fx:id="dateCol" text="Date" prefWidth="100"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </TitledPane>
+
+            <!-- Overlap Analysis -->
+            <TitledPane fx:id="overlapPane" text="Overlap Analysis" expanded="true" managed="false" visible="false">
+                <VBox fx:id="overlapContent" spacing="8">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                </VBox>
+            </TitledPane>
+
+            <!-- Differentiation Suggestions -->
+            <TitledPane fx:id="suggestionsPane" text="Differentiation Suggestions" expanded="true" managed="false" visible="false">
+                <VBox fx:id="suggestionsContent" spacing="8">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                </VBox>
+            </TitledPane>
+
+        </VBox>
+
+        <Separator/>
+
+        <!-- Search History -->
+        <VBox fx:id="historyBox" spacing="10">
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label text="Search History" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+            </HBox>
+            <Label fx:id="historyEmptyLabel" text="No prior art searches yet. Enter an idea above to get started."
+                   wrapText="true" style="-fx-text-fill: #999;"/>
+            <Accordion fx:id="historyAccordion"/>
+        </VBox>
+    </VBox>
+</ScrollPane>
