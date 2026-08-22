@@ -1,6 +1,7 @@
 package com.patenttracker.service;
 
 import com.patenttracker.dao.MinedPatentDao;
+import com.patenttracker.model.DiscoveredPatent;
 import com.patenttracker.model.MinedPatent;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -237,4 +238,75 @@ public class GooglePatentsSearchService {
         void onStatus(String status);
         boolean isCancelled();
     }
+
+    public PriorArtSearchResult searchForPriorArt(List<String> queries, SearchProgressCallback callback) {
+        List<DiscoveredPatent> allResults = new ArrayList<>();
+        Set<String> seenNumbers = new java.util.HashSet<>();
+
+        for (String query : queries) {
+            if (callback != null && callback.isCancelled()) break;
+
+            if (callback != null) callback.onStatus("Google Patents: searching \"" + query + "\"...");
+
+            LocalDate toDate = LocalDate.now();
+            LocalDate fromDate = toDate.minusYears(5);
+
+            try {
+                String queryParam = buildQueryParam(query, fromDate, toDate);
+                String xhrUrl = "https://patents.google.com/xhr/query?url="
+                        + URLEncoder.encode(queryParam, StandardCharsets.UTF_8);
+
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(xhrUrl))
+                        .header("User-Agent", USER_AGENT)
+                        .header("Accept", "application/json")
+                        .timeout(REQUEST_TIMEOUT)
+                        .GET()
+                        .build();
+
+                HttpResponse<String> response = null;
+                for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                    if (callback != null && callback.isCancelled()) break;
+                    response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() == 429 || response.statusCode() == 503) {
+                        if (attempt < MAX_RETRIES) {
+                            long delay = RETRY_BASE_DELAY_MS * (1L << attempt);
+                            if (callback != null) {
+                                callback.onStatus("Rate limited, retrying in " + (delay / 1000) + "s...");
+                            }
+                            Thread.sleep(delay);
+                            continue;
+                        }
+                    }
+                    break;
+                }
+
+                if (response != null && response.statusCode() == 200) {
+                    List<MinedPatent> parsed = parseXhrResults(response.body(), query, query);
+                    for (MinedPatent mp : parsed) {
+                        if (seenNumbers.add(mp.getPatentNumber())) {
+                            DiscoveredPatent dp = DiscoveredPatent.builder()
+                                    .patentNumber(mp.getPatentNumber())
+                                    .title(mp.getTitle())
+                                    .abstractText(mp.getAbstractText())
+                                    .grantDate(mp.getGrantDate())
+                                    .source(DiscoveredPatent.Source.GOOGLE_PATENTS.name())
+                                    .build();
+                            allResults.add(dp);
+                        }
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception ignored) {}
+        }
+
+        if (callback != null) {
+            callback.onStatus("Google Patents found " + allResults.size() + " unique patents.");
+        }
+        return new PriorArtSearchResult(!allResults.isEmpty() || queries.isEmpty(), allResults, null);
+    }
+
+    public record PriorArtSearchResult(boolean success, List<DiscoveredPatent> patents, String error) {}
 }

@@ -1,0 +1,43 @@
+You are a patent analyst. Decompose the following invention idea into structured components that can be used to search patent databases for prior art.
+
+Invention Idea:
+{{idea_text}}
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "idea_summary": "A one-paragraph summary of the core invention",
+  "key_concepts": [
+    {
+      "concept": "Short name for a core technical concept",
+      "description": "What this concept means in context of the invention",
+      "search_terms": ["keyword1", "keyword2", "keyword3"]
+    }
+  ],
+  "potential_claims": [
+    "A method for...",
+    "A system comprising...",
+    "An apparatus configured to..."
+  ],
+  "cpc_classifications": [
+    {
+      "code": "G06F",
+      "description": "Why this CPC code is relevant"
+    }
+  ],
+  "search_queries": [
+    "Natural language query optimized for patent search 1",
+    "Natural language query optimized for patent search 2",
+    "Natural language query optimized for patent search 3",
+    "Natural language query optimized for patent search 4"
+  ],
+  "technical_domain": "The primary technical domain of this invention",
+  "novelty_hypothesis": "What you believe makes this idea potentially novel, based solely on the description"
+}
+
+Guidelines:
+- Generate 3-6 key concepts that capture the distinct technical elements
+- Generate 3-5 potential claims in standard patent claim language
+- Suggest 2-4 CPC classification codes that are most likely to contain prior art
+- Generate 4-6 search queries that would find the most relevant prior art (mix broad and narrow)
+- Each search query should focus on a different aspect or combination of concepts
+- The search queries should use terminology common in patent literature, not colloquial language

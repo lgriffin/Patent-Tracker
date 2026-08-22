@@ -1,0 +1,58 @@
+You are a patent analyst conducting a prior art analysis. Compare the following invention idea against discovered prior art patents and assess the overlap.
+
+Invention Idea:
+{{idea_text}}
+
+Key Concepts from Decomposition:
+{{decomposed_concepts}}
+
+Discovered Prior Art Patents:
+{{prior_art_patents}}
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "overlap_assessment": {
+    "overall_risk": "HIGH, MEDIUM, or LOW",
+    "summary": "Overall assessment of how much prior art exists for this idea"
+  },
+  "concept_overlaps": [
+    {
+      "concept": "Name of the key concept from decomposition",
+      "overlap_level": "FULL, PARTIAL, MINIMAL, or NONE",
+      "overlapping_patents": [
+        {
+          "patent_number": "USxxxxxxx",
+          "title": "Patent title",
+          "overlap_description": "How this patent overlaps with the concept"
+        }
+      ],
+      "gap_description": "What aspect of this concept is NOT covered by prior art"
+    }
+  ],
+  "closest_patents": [
+    {
+      "patent_number": "USxxxxxxx",
+      "title": "Patent title",
+      "similarity_score": 0.85,
+      "key_differences": ["How the invention differs from this patent"],
+      "key_similarities": ["How the invention is similar to this patent"]
+    }
+  ],
+  "uncovered_areas": [
+    "Aspects of the invention that appear to have no prior art coverage"
+  ],
+  "blocking_patents": [
+    {
+      "patent_number": "USxxxxxxx",
+      "title": "Patent title",
+      "blocking_reason": "Why this patent could block the invention"
+    }
+  ]
+}
+
+Guidelines:
+- Be thorough in identifying overlaps — missing a relevant prior art reference is worse than a false positive
+- For each concept, assess whether prior art fully covers it, partially covers it, or leaves it open
+- Similarity scores should reflect how close the prior art is to the specific concept, not just the general field
+- Identify any patents that could block filing or require licensing
+- Note areas where the invention has clear novelty that prior art does not address

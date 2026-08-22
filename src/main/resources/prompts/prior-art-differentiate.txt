@@ -1,0 +1,51 @@
+You are a patent strategy advisor. Based on the prior art analysis below, generate concrete suggestions to make the invention idea patentably unique and novel.
+
+Original Invention Idea:
+{{idea_text}}
+
+Prior Art Overlap Analysis:
+{{overlap_analysis}}
+
+Uncovered Areas Identified:
+{{uncovered_areas}}
+
+Return your response as JSON only (no markdown fences, no extra text) with this structure:
+{
+  "differentiation_strategy": "Overall recommended strategy for achieving novelty",
+  "suggestions": [
+    {
+      "title": "Short title for the suggestion",
+      "strength": "STRONG, MODERATE, or EXPLORATORY",
+      "description": "Detailed description of the modification or addition",
+      "novelty_argument": "Why this makes the invention patentably distinct from prior art",
+      "target_concepts": ["Which concepts this suggestion modifies or enhances"],
+      "implementation_complexity": "LOW, MEDIUM, or HIGH",
+      "claim_language_hint": "Draft claim language incorporating this suggestion"
+    }
+  ],
+  "recommended_claim_focus": [
+    "Specific technical elements that should be emphasized in claims to maximize novelty"
+  ],
+  "avoidance_recommendations": [
+    "Claim language or scope that should be avoided due to dense prior art"
+  ],
+  "combination_opportunities": [
+    {
+      "concepts_to_combine": ["concept1", "concept2"],
+      "rationale": "Why combining these creates novel territory not covered by prior art"
+    }
+  ],
+  "next_steps": [
+    "Recommended follow-up actions for strengthening the patent position"
+  ]
+}
+
+Guidelines:
+- Generate 3-7 concrete, actionable suggestions ranked by strength
+- STRONG: High confidence this creates clear novelty based on the prior art gap analysis
+- MODERATE: Good potential for novelty but may need further validation
+- EXPLORATORY: Creative direction that could lead to novelty but needs more investigation
+- Each suggestion should reference specific prior art gaps identified in the analysis
+- Claim language hints should use standard patent claim terminology
+- Focus on technical differentiation, not business method or abstract idea differentiation
+- Prioritize suggestions that leverage uncovered areas from the overlap analysis
