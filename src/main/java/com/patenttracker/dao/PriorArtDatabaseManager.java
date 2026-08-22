@@ -68,6 +68,9 @@ public class PriorArtDatabaseManager {
         if (currentVersion < 1) {
             executeSqlResource(conn, "/db/prior-art/PA001__initial_schema.sql");
         }
+        if (currentVersion < 2) {
+            executeSqlResource(conn, "/db/prior-art/PA002__corpus_tables.sql");
+        }
     }
 
     private static int getCurrentSchemaVersion(Connection conn) {
@@ -100,12 +103,32 @@ public class PriorArtDatabaseManager {
         }
 
         try (Statement stmt = conn.createStatement()) {
+            StringBuilder current = new StringBuilder();
+            boolean inTrigger = false;
             for (String s : sql.split(";")) {
                 String cleaned = s.lines()
                         .filter(line -> !line.trim().startsWith("--"))
                         .collect(Collectors.joining("\n")).trim();
                 if (cleaned.isEmpty()) continue;
-                stmt.execute(cleaned);
+
+                if (inTrigger) {
+                    current.append(";").append(s);
+                    if (cleaned.toUpperCase().contains("END")) {
+                        stmt.execute(current.toString().trim());
+                        current.setLength(0);
+                        inTrigger = false;
+                    }
+                } else if (cleaned.toUpperCase().startsWith("CREATE TRIGGER")) {
+                    current.append(s);
+                    if (cleaned.toUpperCase().contains("END")) {
+                        stmt.execute(current.toString().trim());
+                        current.setLength(0);
+                    } else {
+                        inTrigger = true;
+                    }
+                } else {
+                    stmt.execute(cleaned);
+                }
             }
         }
     }

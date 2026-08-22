@@ -24,6 +24,7 @@ public class MainController {
     @FXML private Tab insightsTab;
     @FXML private Tab miningTab;
     @FXML private Tab priorArtTab;
+    @FXML private Tab corpusTab;
     @FXML private Label statusLabel;
     @FXML private MenuItem importCsvMenuItem;
     @FXML private MenuItem syncAllMenuItem;
@@ -34,6 +35,7 @@ public class MainController {
     @FXML private InsightsController insightsController;
     @FXML private MiningController miningController;
     @FXML private PriorArtController priorArtController;
+    @FXML private CorpusController corpusController;
 
     @FXML
     public void initialize() {

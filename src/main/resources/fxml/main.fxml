@@ -49,6 +49,9 @@
             <Tab text="Prior Art Search" fx:id="priorArtTab">
                 <fx:include source="prior-art.fxml" fx:id="priorArt"/>
             </Tab>
+            <Tab text="Patent Corpus" fx:id="corpusTab">
+                <fx:include source="corpus.fxml" fx:id="corpus"/>
+            </Tab>
         </TabPane>
     </center>
 
