@@ -18,6 +18,8 @@
         <maven.compiler.target>21</maven.compiler.target>
         <javafx.version>21.0.9</javafx.version>
         <junit.version>5.12.2</junit.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <maven.version>3.8.0</maven.version>
     </properties>
 
     <dependencies>
@@ -35,6 +37,18 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-web</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
             <version>${javafx.version}</version>
         </dependency>
 
@@ -88,6 +102,26 @@
             </plugin>
 
             <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
@@ -101,44 +135,107 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>
-                    <argLine>
-                        --add-opens com.patenttracker/com.patenttracker.dao=ALL-UNNAMED
-                        --add-opens com.patenttracker/com.patenttracker.service=ALL-UNNAMED
-                        --add-opens com.patenttracker/com.patenttracker.model=ALL-UNNAMED
-                    </argLine>
+                    <argLine>@{argLine} --add-opens com.patenttracker/com.patenttracker.dao=ALL-UNNAMED --add-opens com.patenttracker/com.patenttracker.service=ALL-UNNAMED --add-opens com.patenttracker/com.patenttracker.model=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
         </plugins>
     </build>
 
     <profiles>
-        <!-- Auto-detect JavaFX platform from OS -->
+        <profile>
+            <id>enforcer</id>
+            <activation>
+                <jdk>[21,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-maven</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireMavenVersion>
+                                            <version>3.8.0</version>
+                                        </requireMavenVersion>
+                                        <requireJavaVersion>
+                                            <version>[21,)</version>
+                                        </requireJavaVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- JavaFX platform dependencies -->
         <profile>
             <id>javafx-win</id>
             <activation>
                 <os><family>windows</family></os>
             </activation>
-            <properties>
-                <javafx.platform>win</javafx.platform>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-graphics</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-swing</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>win</classifier>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>javafx-linux</id>
             <activation>
                 <os><family>unix</family><name>Linux</name></os>
             </activation>
-            <properties>
-                <javafx.platform>linux</javafx.platform>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-graphics</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>linux</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-swing</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>linux</classifier>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>javafx-mac</id>
             <activation>
                 <os><family>mac</family></os>
             </activation>
-            <properties>
-                <javafx.platform>mac</javafx.platform>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-graphics</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-swing</artifactId>
+                    <version>${javafx.version}</version>
+                    <classifier>mac</classifier>
+                </dependency>
+            </dependencies>
         </profile>
 
         <profile>
