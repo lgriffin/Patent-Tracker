@@ -185,8 +185,8 @@ public class PdfDownloadService {
                         false, null, "PDF download returned HTTP " + pdfResponse.statusCode(), sourceType);
             }
         } catch (Exception e) {
-            try { Files.deleteIfExists(Path.of(pdfPath)); } catch (Exception ignored) {}
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            try { Files.deleteIfExists(Path.of(pdfPath)); } catch (Exception ex) { }
             return new DownloadResult(patent.getFileNumber(), patent.getTitle(),
                     false, null, "Download failed: " + msg, sourceType);
         }
@@ -293,7 +293,7 @@ public class PdfDownloadService {
             if (patent.getPdfPath() != null && !patent.getPdfPath().isBlank()) {
                 try {
                     Files.deleteIfExists(Path.of(patent.getPdfPath()));
-                } catch (Exception ignored) {}
+                } catch (Exception ex) { }
                 Patent cleared = Patent.builder(patent).pdfPath(null).build();
                 patentDao.update(cleared);
                 removed++;
@@ -305,8 +305,8 @@ public class PdfDownloadService {
         if (Files.isDirectory(pdfDir)) {
             try (var files = Files.list(pdfDir)) {
                 files.filter(p -> p.toString().endsWith(".pdf"))
-                     .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
-            } catch (Exception ignored) {}
+                     .forEach(p -> { try { Files.delete(p); } catch (Exception ex) { } });
+            } catch (Exception ex) { }
         }
 
         return removed;

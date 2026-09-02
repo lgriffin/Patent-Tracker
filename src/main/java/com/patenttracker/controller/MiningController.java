@@ -494,13 +494,13 @@ public class MiningController {
         patentsFoundLabel.setText(String.valueOf(count));
         searchAreaLabel.setText(area);
 
-        try {
-            var dao = new com.patenttracker.dao.MinedPatentDao();
-            List<MinedPatent> mined = dao.findBySearchArea(area);
-            minedPatentsTable.setItems(FXCollections.observableArrayList(mined));
-        } catch (SQLException ignored) {}
+         try {
+             var dao = new com.patenttracker.dao.MinedPatentDao();
+             List<MinedPatent> mined = dao.findBySearchArea(area);
+             minedPatentsTable.setItems(FXCollections.observableArrayList(mined));
+         } catch (SQLException ex) { }
 
-        searchResultsBox.setManaged(true);
+         searchResultsBox.setManaged(true);
         searchResultsBox.setVisible(true);
     }
 

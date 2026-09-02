@@ -311,7 +311,7 @@ public class PriorArtService {
                     queries.add(q.asText());
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { }
         return queries;
     }
 
@@ -328,7 +328,7 @@ public class PriorArtService {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { }
         return codes;
     }
 
@@ -357,7 +357,7 @@ public class PriorArtService {
                 }
                 return sb.toString();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { }
         return "None identified";
     }
 

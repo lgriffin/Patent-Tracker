@@ -193,7 +193,7 @@ public class GooglePatentsSearchService {
                     if (grantDateStr != null) {
                         try {
                             grantDate = LocalDate.parse(grantDateStr);
-                        } catch (Exception ignored) {}
+                        } catch (Exception ex) { }
                     }
 
                     MinedPatent mp = MinedPatent.builder()
@@ -209,7 +209,7 @@ public class GooglePatentsSearchService {
                     if (results.size() >= MAX_RESULTS) return results;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { }
 
         return results;
     }

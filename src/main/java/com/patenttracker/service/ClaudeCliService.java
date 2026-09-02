@@ -47,27 +47,27 @@ public class ClaudeCliService {
 
             // Write prompt to stdin
             String finalPrompt = prompt;
-            CompletableFuture.runAsync(() -> {
-                try (OutputStreamWriter writer = new OutputStreamWriter(
-                        process.getOutputStream(), StandardCharsets.UTF_8)) {
-                    writer.write(finalPrompt);
-                    writer.flush();
-                } catch (IOException ignored) {}
-            }, VIRTUAL_EXECUTOR);
+             CompletableFuture.runAsync(() -> {
+                 try (OutputStreamWriter writer = new OutputStreamWriter(
+                         process.getOutputStream(), StandardCharsets.UTF_8)) {
+                     writer.write(finalPrompt);
+                     writer.flush();
+                 } catch (IOException ex) { }
+             }, VIRTUAL_EXECUTOR);
 
-            CompletableFuture<String> stdoutFuture = CompletableFuture.supplyAsync(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                    return reader.lines().collect(Collectors.joining("\n"));
-                } catch (IOException e) { return ""; }
-            }, VIRTUAL_EXECUTOR);
+             CompletableFuture<String> stdoutFuture = CompletableFuture.supplyAsync(() -> {
+                 try (BufferedReader reader = new BufferedReader(
+                         new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                     return reader.lines().collect(Collectors.joining("\n"));
+                 } catch (IOException ex) { return ""; }
+             }, VIRTUAL_EXECUTOR);
 
-            CompletableFuture<String> stderrFuture = CompletableFuture.supplyAsync(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
-                    return reader.lines().collect(Collectors.joining("\n"));
-                } catch (IOException e) { return ""; }
-            }, VIRTUAL_EXECUTOR);
+             CompletableFuture<String> stderrFuture = CompletableFuture.supplyAsync(() -> {
+                 try (BufferedReader reader = new BufferedReader(
+                         new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                     return reader.lines().collect(Collectors.joining("\n"));
+                 } catch (IOException ex) { return ""; }
+             }, VIRTUAL_EXECUTOR);
 
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
 
@@ -149,60 +149,60 @@ public class ClaudeCliService {
         }
 
         if (start >= 0) {
-            String candidate = trimmed.substring(start);
-            try {
-                mapper.readTree(candidate);
-                return candidate;
-            } catch (Exception ignored) {}
-        }
+             String candidate = trimmed.substring(start);
+             try {
+                 mapper.readTree(candidate);
+                 return candidate;
+             } catch (Exception ex) { }
+         }
 
-        return trimmed;
-    }
+         return trimmed;
+     }
 
-    private String extractModelUsed(String stdout) {
-        try {
-            JsonNode root = mapper.readTree(stdout);
-            if (root.has("model")) {
-                return root.get("model").asText();
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
+     private String extractModelUsed(String stdout) {
+         try {
+             JsonNode root = mapper.readTree(stdout);
+             if (root.has("model")) {
+                 return root.get("model").asText();
+             }
+         } catch (Exception ex) { }
+         return null;
+     }
 
-    private long[] extractUsage(String stdout) {
-        try {
-            JsonNode root = mapper.readTree(stdout);
-            JsonNode usage = root.path("usage");
-            if (!usage.isMissingNode()) {
-                long input = usage.path("input_tokens").asLong(0);
-                long output = usage.path("output_tokens").asLong(0);
-                return new long[]{input, output};
-            }
-        } catch (Exception ignored) {}
-        return new long[]{0, 0};
-    }
+     private long[] extractUsage(String stdout) {
+         try {
+             JsonNode root = mapper.readTree(stdout);
+             JsonNode usage = root.path("usage");
+             if (!usage.isMissingNode()) {
+                 long input = usage.path("input_tokens").asLong(0);
+                 long output = usage.path("output_tokens").asLong(0);
+                 return new long[]{input, output};
+             }
+         } catch (Exception ex) { }
+         return new long[]{0, 0};
+     }
 
-    private double extractCost(String stdout) {
-        try {
-            JsonNode root = mapper.readTree(stdout);
-            if (root.has("cost_usd")) return root.get("cost_usd").asDouble(0.0);
-            if (root.has("total_cost_usd")) return root.get("total_cost_usd").asDouble(0.0);
-        } catch (Exception ignored) {}
-        return 0.0;
-    }
+     private double extractCost(String stdout) {
+         try {
+             JsonNode root = mapper.readTree(stdout);
+             if (root.has("cost_usd")) return root.get("cost_usd").asDouble(0.0);
+             if (root.has("total_cost_usd")) return root.get("total_cost_usd").asDouble(0.0);
+         } catch (Exception ex) { }
+         return 0.0;
+     }
 
-    public boolean isAvailable() {
-        try {
-            ProcessBuilder pb = new ProcessBuilder(getCliPath(), "--version");
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
-            if (finished && process.exitValue() == 0) {
-                return true;
-            }
-        } catch (Exception ignored) {}
-        return false;
-    }
+     public boolean isAvailable() {
+         try {
+             ProcessBuilder pb = new ProcessBuilder(getCliPath(), "--version");
+             pb.redirectErrorStream(true);
+             Process process = pb.start();
+             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+             if (finished && process.exitValue() == 0) {
+                 return true;
+             }
+         } catch (Exception ex) { }
+         return false;
+     }
 
     public static String getCliPath() {
         try {
@@ -340,23 +340,23 @@ public class ClaudeCliService {
                                     String resultText = event.path("result").asText(null);
                                     if (resultText != null) accumulated.append(resultText);
                                 }
-                                JsonNode usage = event.path("usage");
-                                if (!usage.isMissingNode()) {
-                                    usageTokens[0] = usage.path("input_tokens").asLong(0);
-                                    usageTokens[1] = usage.path("output_tokens").asLong(0);
-                                }
-                                if (event.has("cost_usd")) {
-                                    costAccum[0] = event.get("cost_usd").asDouble(0.0);
-                                } else if (event.has("total_cost_usd")) {
-                                    costAccum[0] = event.get("total_cost_usd").asDouble(0.0);
-                                }
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
+                                 JsonNode usage = event.path("usage");
+                                 if (!usage.isMissingNode()) {
+                                     usageTokens[0] = usage.path("input_tokens").asLong(0);
+                                     usageTokens[1] = usage.path("output_tokens").asLong(0);
+                                 }
+                                 if (event.has("cost_usd")) {
+                                     costAccum[0] = event.get("cost_usd").asDouble(0.0);
+                                 } else if (event.has("total_cost_usd")) {
+                                     costAccum[0] = event.get("total_cost_usd").asDouble(0.0);
+                                 }
+                             }
+                         }
+                     } catch (Exception ex) { }
+                 }
+             }
 
-            process.waitFor();
+             process.waitFor();
             watchdog.interrupt();
 
             long duration = System.currentTimeMillis() - startTime;
