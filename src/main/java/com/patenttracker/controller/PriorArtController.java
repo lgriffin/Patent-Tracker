@@ -340,17 +340,17 @@ public class PriorArtController {
 
     private void displayPartialResults(int sessionId) {
         try {
-            List<DiscoveredPatent> patents = priorArtService.getDiscoveredPatents(sessionId);
-            if (!patents.isEmpty()) {
-                discoveredTable.setItems(FXCollections.observableArrayList(patents));
-                patentsFoundLabel.setText(String.valueOf(patents.size()));
-                resultsBox.setManaged(true);
-                resultsBox.setVisible(true);
-            }
-        } catch (SQLException ignored) {}
-    }
+             List<DiscoveredPatent> patents = priorArtService.getDiscoveredPatents(sessionId);
+             if (!patents.isEmpty()) {
+                 discoveredTable.setItems(FXCollections.observableArrayList(patents));
+                 patentsFoundLabel.setText(String.valueOf(patents.size()));
+                 resultsBox.setManaged(true);
+                 resultsBox.setVisible(true);
+             }
+         } catch (SQLException ex) { }
+     }
 
-    private void displayOverlapAnalysis(String json) {
+     private void displayOverlapAnalysis(String json) {
         overlapContent.getChildren().clear();
         try {
             JsonNode root = om.readTree(json);
@@ -597,12 +597,12 @@ public class PriorArtController {
                 toolbar.getChildren().addAll(statusLabel, spacer, loadBtn, exportBtn, deleteBtn);
                 entryContent.getChildren().add(toolbar);
 
-                int patentCount;
-                try {
-                    patentCount = priorArtService.getDiscoveredPatents(sid).size();
-                } catch (SQLException ignored) {
-                    patentCount = 0;
-                }
+                 int patentCount;
+                 try {
+                     patentCount = priorArtService.getDiscoveredPatents(sid).size();
+                 } catch (SQLException ex) {
+                     patentCount = 0;
+                 }
                 Label statsLabel = new Label("Patents found: " + patentCount);
                 statsLabel.setStyle("-fx-font-size: 11px;");
                 entryContent.getChildren().add(statsLabel);

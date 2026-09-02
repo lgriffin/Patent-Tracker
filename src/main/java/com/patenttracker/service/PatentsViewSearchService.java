@@ -193,7 +193,7 @@ public class PatentsViewSearchService {
                         .build();
                 results.add(dp);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { }
         return results;
     }
 

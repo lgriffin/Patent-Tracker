@@ -195,10 +195,9 @@ public class CorpusBulkDownloadService {
             documentDao.updateDownloadStatus(doc.getId(), "COMPLETE", pdfPath);
             return new DownloadResult(patentNum, true, null);
         } catch (Exception e) {
-            try { Files.deleteIfExists(Path.of(pdfPath)); } catch (Exception ignored) {}
-            try { documentDao.updateDownloadStatus(doc.getId(), "FAILED", null); }
-            catch (Exception ignored) {}
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            try { Files.deleteIfExists(Path.of(pdfPath)); } catch (Exception ex) { }
+            try { documentDao.updateDownloadStatus(doc.getId(), "FAILED", null); } catch (Exception ex) { }
             return new DownloadResult(patentNum, false, "Download failed: " + msg);
         }
     }
@@ -225,14 +224,13 @@ public class CorpusBulkDownloadService {
             proc.getInputStream().readAllBytes();
             boolean finished = proc.waitFor(150, TimeUnit.SECONDS);
             if (!finished) {
-                proc.destroyForcibly();
-                return false;
-            }
-            return proc.exitValue() == 0;
-        } catch (Exception e) {
-            return false;
-        }
-    }
+                 proc.destroyForcibly();
+                 return false;
+             }
+             return proc.exitValue() == 0;
+         } catch (Exception ex) { }
+         return false;
+     }
 
     private ExtractionResult extractSinglePdf(CorpusDocument doc) {
         if (doc.getPdfPath() == null || doc.getPdfPath().isBlank()) {
@@ -253,9 +251,8 @@ public class CorpusBulkDownloadService {
             documentDao.updateExtractionStatus(doc.getId(), "COMPLETE", text, pageCount, wordCount);
             return new ExtractionResult(doc.getPatentNumber(), true, pageCount, wordCount, null);
         } catch (Exception e) {
-            try { documentDao.updateExtractionStatus(doc.getId(), "FAILED", null, 0, 0); }
-            catch (Exception ignored) {}
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            try { documentDao.updateExtractionStatus(doc.getId(), "FAILED", null, 0, 0); } catch (Exception ex) { }
             return new ExtractionResult(doc.getPatentNumber(), false, 0, 0,
                     "Extraction failed: " + msg);
         }
