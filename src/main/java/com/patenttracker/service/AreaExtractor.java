@@ -159,7 +159,7 @@ public class AreaExtractor {
                         }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) { }
         }
 
         List<PatentMiningService.AreaOfInterest> result = new ArrayList<>();
@@ -205,7 +205,7 @@ public class AreaExtractor {
                     items.add(parseInventionPromptNode(m, "MOONSHOT", "MOONSHOT"));
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) { }
 
         return items;
     }
@@ -242,7 +242,7 @@ public class AreaExtractor {
                 JsonNode node = mapper.readTree(analysis.getResultJson());
                 extractor.extract(node);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) { }
     }
 
     private void extractArrayField(Map<String, AreaBuilder> areas, JsonNode root,

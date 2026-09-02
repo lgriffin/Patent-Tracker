@@ -207,7 +207,7 @@ public class InsightService {
                         if (callback != null) callback.onResult(cached);
                         continue;
                     }
-                } catch (SQLException ignored) {}
+                } catch (SQLException ex) { }
 
                 InsightResult result = singlePatentAnalyzer.runSinglePatentAnalysis(
                         patent, analysisType, templateName);

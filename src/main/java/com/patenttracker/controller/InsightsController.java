@@ -523,20 +523,20 @@ public class InsightsController {
             List<Patent> patents = patentDao.findAll();
             if (!patents.isEmpty()) {
                 PatentAnalysis analysis = insightService.getCachedAnalysis(
-                        patents.getFirst().getId(), analysisType);
-                if (analysis != null && analysis.getAnalyzedAt() != null) {
-                    label.setText("Done " + analysis.getAnalyzedAt().format(DISPLAY_DATETIME));
-                    label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
-                    return;
-                }
-            }
-        } catch (SQLException ignored) {}
-        label.setText("Not run");
-        label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #999;");
-    }
+                         patents.getFirst().getId(), analysisType);
+                 if (analysis != null && analysis.getAnalyzedAt() != null) {
+                     label.setText("Done " + analysis.getAnalyzedAt().format(DISPLAY_DATETIME));
+                     label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
+                     return;
+                 }
+             }
+         } catch (SQLException ex) { }
+         label.setText("Not run");
+         label.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #999;");
+     }
 
-    @FXML
-    private void handleExportCrossPatent() {
+     @FXML
+     private void handleExportCrossPatent() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Export Cross-Patent Results");
         fileChooser.setInitialFileName("cross-patent-analysis.md");

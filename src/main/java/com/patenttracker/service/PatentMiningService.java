@@ -490,7 +490,7 @@ public class PatentMiningService {
                             .append(tech.getResultJson())
                             .append("\n---\n");
                 }
-            } catch (SQLException ignored) {}
+            } catch (SQLException ex) { }
         }
         return sb.toString();
     }

@@ -172,13 +172,13 @@ public class PortfolioAnalyzer {
                 PatentAnalysis clustering = patentAnalysisDao.findByPatentIdAndType(
                         patents.getFirst().getId(), "CLUSTERING");
                 if (clustering != null) {
-                    additionalContext.append("\nClustering Analysis Results:\n")
-                            .append(clustering.getResultJson()).append("\n");
-                }
-            }
-        } catch (SQLException ignored) {}
+                     additionalContext.append("\nClustering Analysis Results:\n")
+                             .append(clustering.getResultJson()).append("\n");
+                 }
+             }
+         } catch (SQLException ex) { }
 
-        Function<List<PatentTechPair>, String> summaryBuilder = buildPlainSummary();
+         Function<List<PatentTechPair>, String> summaryBuilder = buildPlainSummary();
         Map<String, String> extraVars = Map.of("additional_context", additionalContext.toString());
 
         return runChunkedOrDirect(pairs, patents, "INVENTION_PROMPTS", "invention-prompts",

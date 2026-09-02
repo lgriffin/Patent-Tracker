@@ -106,12 +106,12 @@ public class SinglePatentAnalyzer {
                 return pt.getFullText();
             }
 
-            PdfExtractorService.ExtractionResult result = pdfExtractorService.extractText(patent);
-            if (result.success()) {
-                pt = patentTextDao.findByPatentId(patent.getId());
-                return pt != null ? pt.getFullText() : null;
-            }
-        } catch (SQLException ignored) {}
-        return null;
+             PdfExtractorService.ExtractionResult result = pdfExtractorService.extractText(patent);
+             if (result.success()) {
+                 pt = patentTextDao.findByPatentId(patent.getId());
+                 return pt != null ? pt.getFullText() : null;
+             }
+         } catch (SQLException ex) { }
+         return null;
     }
 }
